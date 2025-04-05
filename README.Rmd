@@ -1,0 +1,32 @@
+---
+title: "rmaADM"
+
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      echo = TRUE,
+                        fig.path = "man/figures/")
+library(knitr)
+library(dplyr)
+library(devtools)
+load_all()
+```
+

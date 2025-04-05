@@ -6,7 +6,9 @@
 #'
 #' @returns a list of the data and layout file urls
 #'
-#' @examples locate_download_link(year = 2012)
+#' @importFrom stringr str_match_all
+#'
+#' @examples \dontrun{locate_download_link(year = 2012)}
 locate_download_link <- function(year = 2012,
                                  adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/"){
 
@@ -61,14 +63,15 @@ locate_download_link <- function(year = 2012,
 #' @param dir the directory to save the files to
 #'
 #' @returns the data and layout files for the given year
+#' @importFrom utils download.file unzip
+
 #'
-#' @examples download_adm(year = 2012)
+#' @examples \dontrun{download_adm(year = 2012)}
 download_adm <- function(year = 2012,
                          adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
                          dir = "./data-raw"){
 
-  # set timeout to 10 minutes
-  options(timeout = 600)
+
 
   # create a year directory if it doesn't already exist
   dir.create(paste0(dir,"/",year))
@@ -77,21 +80,21 @@ download_adm <- function(year = 2012,
   urls <- locate_download_link(year = year, adm_url = adm_url)
 
   # download the data
-  download.file(urls[['data']],
+  utils::download.file(urls[['data']],
                 destfile=paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
                 mode="wb")
 
   # extract the data zip files
-  unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
+  utils::unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
         exdir = paste0(dir,"/",year))
 
   # download the layout file
-  download.file(urls[['layout']],
+  utils::download.file(urls[['layout']],
                 destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
                 mode="wb")
 
   # extract the layout zip files
-  unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
+  utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
         exdir = paste0(dir,"/",year))
 }
 
