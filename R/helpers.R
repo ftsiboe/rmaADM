@@ -6,8 +6,8 @@
 #'
 #' @returns a list of the data and layout file urls with the time the file was last updated on RMA's server
 #'
-#' @importFrom stringr str_match_all
-#' @imports dplyr
+#' @importFrom stringr str_match_all str_extract
+#' @import dplyr
 #'
 #' @examples \dontrun{locate_download_link(year = 2012)}
 locate_download_link <- function(year = 2012,
@@ -59,7 +59,7 @@ locate_download_link <- function(year = 2012,
 
   # filter the file info to only include the data and layout files
   file_info <- file_info %>%
-    filter(grepl("YTD|Layout", filename))
+    filter(grepl("ytd|layout", tolower(filename)))
 
 
   # add the base url and year to the file names
@@ -70,13 +70,17 @@ locate_download_link <- function(year = 2012,
   links <- as.list(file_info$filename)
 
   # name the link that contains "YTD" as "data"
-  links$data <- links[grepl("YTD",links)]
+  names(links)[which(grepl("YTD|ytd",links))] <- "data"
 
   # name the link that contains "Layout" as "layout"
-  links$layout <- links[grepl("Layout",links)]
+  names(links)[which(grepl("Layout|layout",links))] <- "layout"
 
   # add the update date to the links
   links$update_date <- file_info$datetime[grepl("YTD",file_info$filename)]
+
+  # unlist layout and data links
+  links$data <- unlist(links$data)
+  links$layout <- unlist(links$layout)
 
   # return the links
   return(links)
@@ -93,8 +97,8 @@ locate_download_link <- function(year = 2012,
 #'
 #' @returns the data and layout files for the given year
 #' @importFrom utils download.file unzip
-#' @imports cli
-
+#' @importFrom readr read_delim
+#' @import cli
 #'
 #' @examples \dontrun{download_adm(year = 2012)}
 download_adm <- function(year = 2012,
@@ -108,15 +112,26 @@ download_adm <- function(year = 2012,
 
   # check if there is already a file in the dir
   if (dir.exists(paste0(dir,"/",year))) {
-    # get the time when the file was last modified
-    last_modified <- file.info(paste0(dir,"/",year))$mtime
+    # get the list of files in the directory
+    files <- list.files(paste0(dir,"/",year), full.names = TRUE)
+
+    # if there are no files, set last_modified to NULL
+    if (length(files) == 0) {
+      last_modified <- NULL
+    } else {
+      # get the most recent file in the directory
+      most_recent_file <- files[which.max(file.info(files)$mtime)]
+
+      # get the time when the most recent file was last modified
+      last_modified <- file.info(most_recent_file)$mtime
+    }
   }
 
   # locate the urls for the data and adm
   urls <- locate_download_link(year = year, adm_url = adm_url)
 
   # check if the update date is greater than the last modified date
-  if (exists("last_modified") && urls$update_date < last_modified) {
+  if (!is.null(last_modified) && urls$update_date < last_modified) {
     cli::cli_alert_info(paste0("The data for ",year," is already up to date. Skipping download."))
     return(invisible(NULL))
   }
@@ -130,15 +145,17 @@ download_adm <- function(year = 2012,
   utils::unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
         exdir = paste0(dir,"/",year))
 
+  # check if the layout url exists (typically doesn't prior to 2011)
+  if("layout" %in% names(urls)){
+    # download the layout file
+    utils::download.file(urls[['layout']],
+                  destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
+                  mode="wb")
 
-  # download the layout file
-  utils::download.file(urls[['layout']],
-                destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
-                mode="wb")
-
-  # extract the layout zip files
-  utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
-        exdir = paste0(dir,"/",year))
+    # extract the layout zip files
+    utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
+          exdir = paste0(dir,"/",year))
+  }
 
   # get file paths for all txt files
   files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
@@ -152,13 +169,16 @@ download_adm <- function(year = 2012,
     cli::cli_progress_update()
 
     # get the file name without the extension
-    file_name <- gsub("\\.txt", "", basename(f))
+    file_name <- clean_file_name(f, file_type_out = "rds")
 
     # suppress read_delim console output
     data <- readr::read_delim(f, delim = "|", col_names = TRUE, show_col_types = FALSE)
 
+    # clean the data
+    data <- clean_data(data)
+
     # save the file as an .rds
-    saveRDS(data, paste0(dir,"/",year,"/",file_name,".rds"))
+    saveRDS(data, file = file_name)
 
     # delete the original .txt file
     file.remove(f)
@@ -170,4 +190,253 @@ download_adm <- function(year = 2012,
 
 }
 
+#' Clean the file name
+#'
+#' @param file_name the file path of the file name to clean
+#' @param file_type_out the type of file (currently only supports rds)
+#'
+#' @returns a version of the file name that is cleaned (i.e. snake case, .rds suffix, no extraneous information)
+#'
+#' @examples \dontrun{clean_file_name("./data-raw/2012_A01100_YieldAndTyield_YTD.txt")}
+clean_file_name <- function(file_name, file_type_out = "rds"){
+
+  # split the file path into the directory and file name
+  parts <- strsplit(file_name, "/")[[1]]
+
+  # file suffix
+  suffix <- parts[length(parts)]
+
+  # remove any instance of alphabetic character followed by 5 numbers
+  #suffix <- gsub("[A-Za-z]\\d{5}", "", suffix)
+
+  # remove any years from the file name
+  suffix <- gsub("\\d{4}", "", suffix)
+
+  # remove "YTD"
+  suffix <- gsub("YTD", "", suffix)
+
+  # remove "_"
+  suffix <- gsub("_", "", suffix)
+
+  # convert from camel case to snake case
+  suffix <- gsub("([a-z])([A-Z])", "\\1_\\2", suffix)
+  suffix <- tolower(suffix)
+
+  # split the suffix by the period
+  suffix_parts <- strsplit(suffix, "\\.")[[1]]
+
+  # replace the last part with the desired file type
+  suffix_parts[length(suffix_parts)] <- file_type_out
+
+  # paste the suffix parts back together
+  suffix <- paste(suffix_parts, collapse = ".")
+
+  # paste the directory and file name back together
+  file_name <- paste(parts[-length(parts)], collapse = "/")
+
+  # paste the file name and suffix together
+  file_name <- paste0(file_name, "/", suffix)
+
+  # return the file name
+  return(file_name)
+
+}
+
+
+#' Apply standardized data cleaning opperations
+#'
+#' @param df a data frame to clean
+#'
+#' @returns a cleaned data frame
+#'
+#' @examples \dontrun{clean_data(df)}
+clean_data <- function(df){
+
+  # clean column names
+  df <- janitor::clean_names(df)
+
+  # enforce data types
+  df <- suppressMessages(readr::type_convert(df))
+
+  # return the df
+  return(df)
+
+
+}
+
+
+#' Get File Information from a Directory
+#'
+#' Scans a specified directory for files with a given suffix and returns a data frame
+#' containing their file paths, sizes in bytes, and sizes in megabytes.
+#'
+#' @param directory A character string specifying the path to the directory to scan.
+#'   Defaults to \code{"./data-raw"}.
+#' @param file_suffix A character string specifying the file suffix to match.
+#'   Defaults to \code{".rds"}.
+#'
+#' @return A data frame with columns:
+#'   \item{file_path}{Full file path}
+#'   \item{size_bytes}{File size in bytes}
+#'   \item{size_mb}{File size in megabytes}
+#'
+#' @examples
+#' \dontrun{
+#' get_file_info()
+#' get_file_info(directory = "./my-data", file_suffix = ".csv")
+#' }
+#'
+get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
+  # Get list of all files recursively
+  files <- list.files(path = directory, recursive = TRUE, full.names = TRUE, pattern = file_suffix)
+
+  # Filter only actual files (not directories)
+  files <- files[file.info(files)$isdir == FALSE]
+
+  # Get file sizes
+  sizes <- file.info(files)$size
+
+  # Create data frame
+  df <- data.frame(
+    file_path = files,
+    size_bytes = sizes,
+    size_mb = sizes / (1024 * 1024), # Convert to MB
+    stringsAsFactors = FALSE
+  )
+
+  return(df)
+}
+
+
+#' Parse Dates from Compact YYYYMMDD Format
+#'
+#' Converts a vector of dates in the compact \code{"YYYYMMDD"} format (as character or numeric)
+#' into proper \code{Date} objects. Handles \code{NA} values gracefully.
+#'
+#' @param x A character or numeric vector representing dates in \code{"YYYYMMDD"} format.
+#'
+#' @return A \code{Date} vector with the same length as \code{x}. Invalid or missing entries are returned as \code{NA}.
+#'
+#' @examples
+#' parse_date(c("20240101", "20231231"))
+#' parse_date(c(20240101, NA, 20231115))
+#'
+parse_date <- function(x) {
+  # Ensure character format to handle numeric input safely
+  x <- as.character(x)
+
+  # Identify which elements are NA
+  is_na <- is.na(x)
+
+  # Initialize result vector with NA
+  result <- rep(as.Date(NA), length(x))
+
+  # Process non-NA elements
+  if (any(!is_na)) {
+    year <- substr(x[!is_na], 1, 4)
+    month <- substr(x[!is_na], 5, 6)
+    day <- substr(x[!is_na], 7, 8)
+
+    date_str <- paste(year, month, day, sep = "-")
+    result[!is_na] <- as.Date(date_str)
+  }
+
+  return(result)
+}
+
+
+
+#' Build Helper Datasets from Raw RDS Files
+#'
+#' Processes raw `.rds` files from a specified directory, filters them based on year and size,
+#' combines matching files into unified datasets, saves them as `.rda` files, and generates
+#' corresponding documentation entries in `./R/helper_data.R`.
+#'
+#' @param years A numeric vector of years used to filter the input `.rds` files by year in their file paths.
+#' @param dir A character string specifying the directory containing the raw `.rds` files.
+#'   Defaults to \code{"./data-raw"}.
+#'
+#' @details This function:
+#' \itemize{
+#'   \item Filters `.rds` files in the target directory to those matching specified years.
+#'   \item Excludes files larger than 1MB and those containing "rate" in the filename.
+#'   \item Binds rows of files with matching names across years into a single dataset.
+#'   \item Saves each dataset to the \code{./data/} folder as `.rda` files.
+#'   \item Writes or appends roxygen-style documentation entries to \code{./R/helper_data.R}.
+#'   \item Renames the existing \code{helper_data.R} file with the current date before overwriting.
+#' }
+#'
+#' Each resulting dataset will be available for use with \code{data()} if the package is rebuilt.
+#'
+#' @return No return value.
+#' @examples
+#' \dontrun{
+#' build_helper_datasets(years = 2020:2022)
+#' }
+build_helper_datasets <- function(years,dir = "./data-raw"){
+
+  file_info <- get_file_info(directory = dir,
+                              file_suffix = ".rds")
+
+  # keep only file info for the years specified
+  file_info <- file_info %>%
+    filter(grepl(paste(years, collapse = "|"), file_path))
+
+  # for each year, if the file path contains that year, add a column with the year
+  file_info <- file_info %>%
+    mutate(year = as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_path)))
+
+  # add a column with the file name with out any of the parent folders
+  file_info <- file_info %>%
+    mutate(file_name = gsub(paste0(dir, "/"), "", file_path)) %>%
+    mutate(file_name = gsub("[0-9]{4}/", "", file_name)) %>%
+    mutate(file_name = gsub(".rds", "", file_name))
+
+  # keep only files that are less than 1 MB and don't contain "rate"
+  file_info <- file_info %>%
+    filter(size_mb <= 1 & !grepl("rate", file_name, ignore.case = TRUE))
+
+  # if "./R/data.R" already exists, rename the file name with the data appended
+  if(file.exists("./R/helper_data.R")){
+    file.rename("./R/helper_data.R", paste0("./R/helper_data_", Sys.Date(), ".R"))
+  }
+
+  # create a new file with the header for the data.R file
+  write("#' @title Actuarial Data Master Helper Datasets\n",
+        file = "./R/helper_data.R", append = FALSE)
+
+  # for each unique value in the file_name column,
+  # load all the datasets corresponding to that file name as
+  # specified by the file_path and then row bind them together
+  # and save them as a .rds file with the name of the file_name
+  for(f in unique(file_info$file_name)){
+    # get the file paths for the current file name
+    file_paths <- file_info %>%
+      filter(file_name == f) %>%
+      pull(file_path)
+
+    # load the datasets
+    data <- file_paths %>%
+    purrr::map(readRDS) %>%
+    dplyr::bind_rows()
+
+    # Dynamically assign the name of the data to the value in f
+    assign(f, data)
+
+    # Save the named object to an .rda file
+    save(list = f, file = paste0("./data/", f, ".rda"))
+
+
+    # add a documentation entry in ./data/data.R for the dataset
+    doc_entry <- paste0("#' @name ", f, "\n",
+                        "#' @title ", f, "\n",
+                        "#' @description A combined dataset for ", f, "\n",
+                        "#' @format A data frame with ", nrow(data), " rows and ", ncol(data), " columns covering ",min(data$reinsurance_year),"-",max(data$reinsurance_year),".\n",
+                        "#' @source Actuarial Data Master\n",
+                        "#' @usage data(",f,")", "\n",
+                        paste0('"',f,'"'))
+    # append the doc entry to the data.R file
+    write(doc_entry, file = "./R/helper_data.R", append = TRUE)
+  }
+}
 

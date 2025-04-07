@@ -15,7 +15,7 @@ locate_download_link(
 \item{adm_url}{the url where the adm FTP site is}
 }
 \value{
-a list of the data and layout file urls
+a list of the data and layout file urls with the time the file was last updated on RMA's server
 }
 \description{
 Locate the download link for the actuarial data master
