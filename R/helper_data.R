@@ -126,13 +126,6 @@
 #' @source Actuarial Data Master
 #' @usage data(sub_class)
 "sub_class"
-#' @name sub_county_rate
-#' @title sub_county_rate
-#' @description A combined dataset for sub_county_rate
-#' @format A data frame with 323666 rows and 28 columns covering 2012-2013.
-#' @source Actuarial Data Master
-#' @usage data(sub_county_rate)
-"sub_county_rate"
 #' @name subsidy_percent
 #' @title subsidy_percent
 #' @description A combined dataset for subsidy_percent
@@ -175,13 +168,6 @@
 #' @source Actuarial Data Master
 #' @usage data(insurance_option)
 "insurance_option"
-#' @name rate_method
-#' @title rate_method
-#' @description A combined dataset for rate_method
-#' @format A data frame with 4 rows and 8 columns covering 2013-2013.
-#' @source Actuarial Data Master
-#' @usage data(rate_method)
-"rate_method"
 #' @name spoi_group
 #' @title spoi_group
 #' @description A combined dataset for spoi_group

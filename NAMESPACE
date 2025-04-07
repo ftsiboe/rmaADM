@@ -2,7 +2,10 @@
 
 import(cli)
 import(dplyr)
+importFrom(janitor,clean_names)
+importFrom(purrr,map)
 importFrom(readr,read_delim)
+importFrom(readr,type_convert)
 importFrom(stringr,str_extract)
 importFrom(stringr,str_match_all)
 importFrom(utils,download.file)

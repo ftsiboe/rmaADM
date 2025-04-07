@@ -248,6 +248,8 @@ clean_file_name <- function(file_name, file_type_out = "rds"){
 #' @param df a data frame to clean
 #'
 #' @returns a cleaned data frame
+#' @importFrom janitor clean_names
+#' @importFrom readr type_convert
 #'
 #' @examples \dontrun{clean_data(df)}
 clean_data <- function(df){
@@ -318,8 +320,10 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' @return A \code{Date} vector with the same length as \code{x}. Invalid or missing entries are returned as \code{NA}.
 #'
 #' @examples
+#' \dontrun{
 #' parse_date(c("20240101", "20231231"))
 #' parse_date(c(20240101, NA, 20231115))
+#' }
 #'
 parse_date <- function(x) {
   # Ensure character format to handle numeric input safely
@@ -369,8 +373,9 @@ parse_date <- function(x) {
 #' Each resulting dataset will be available for use with \code{data()} if the package is rebuilt.
 #'
 #' @return No return value.
-#' @examples
-#' \dontrun{
+#' @import dplyr
+#' @importFrom purrr map
+#' @examples \dontrun{
 #' build_helper_datasets(years = 2020:2022)
 #' }
 build_helper_datasets <- function(years,dir = "./data-raw"){
@@ -380,11 +385,11 @@ build_helper_datasets <- function(years,dir = "./data-raw"){
 
   # keep only file info for the years specified
   file_info <- file_info %>%
-    filter(grepl(paste(years, collapse = "|"), file_path))
+    filter(grepl(paste(years, collapse = "|"), file_info$file_path))
 
   # for each year, if the file path contains that year, add a column with the year
   file_info <- file_info %>%
-    mutate(year = as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_path)))
+    mutate(year = as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_info$file_path)))
 
   # add a column with the file name with out any of the parent folders
   file_info <- file_info %>%
@@ -394,7 +399,7 @@ build_helper_datasets <- function(years,dir = "./data-raw"){
 
   # keep only files that are less than 1 MB and don't contain "rate"
   file_info <- file_info %>%
-    filter(size_mb <= 1 & !grepl("rate", file_name, ignore.case = TRUE))
+    filter(file_info$size_mb <= 1 & !grepl("rate", file_info$file_name, ignore.case = TRUE))
 
   # if "./R/data.R" already exists, rename the file name with the data appended
   if(file.exists("./R/helper_data.R")){
@@ -412,7 +417,7 @@ build_helper_datasets <- function(years,dir = "./data-raw"){
   for(f in unique(file_info$file_name)){
     # get the file paths for the current file name
     file_paths <- file_info %>%
-      filter(file_name == f) %>%
+      filter(file_info$file_name == f) %>%
       pull(file_path)
 
     # load the datasets
@@ -424,7 +429,7 @@ build_helper_datasets <- function(years,dir = "./data-raw"){
     assign(f, data)
 
     # Save the named object to an .rda file
-    save(list = f, file = paste0("./data/", f, ".rda"))
+    save(list = f, file = paste0("./data/", f, ".rda"), compress = "xz")
 
 
     # add a documentation entry in ./data/data.R for the dataset
