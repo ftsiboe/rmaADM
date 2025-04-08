@@ -30,7 +30,7 @@ load_all()
 
 ```
 
-The following table details the helper data sets included in the package. Any of the data sets can be loaded by using the `load_data()` function, for example `load_data("adm_layout")`. 
+The following table details the helper data sets included in the package. Any of the data sets can be loaded by using the `load_data()` function, for example `load_data("adm_layout")`.
 ```{r helper_data, include=FALSE}
   # initialize a dataframe with the columns "dataset","rows","columns","years","description"
   df <- data.frame(dataset = character(),
