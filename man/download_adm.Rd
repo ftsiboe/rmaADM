@@ -8,7 +8,8 @@ download_adm(
   years = 2012,
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
   dir = "./data-raw",
-  helpers_only = TRUE
+  helpers_only = TRUE,
+  keep_source_files = FALSE
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ download_adm(
 \item{dir}{the directory to save the files to}
 
 \item{helpers_only}{if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)}
+
+\item{keep_source_files}{if TRUE, keeps the original zip files in the year directory. If FALSE, they will be deleted.}
 }
 \value{
 the data and layout files for the given year

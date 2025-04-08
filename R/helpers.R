@@ -98,7 +98,7 @@ locate_download_link <- function(year = 2012,
 #' @param adm_url the url where the adm FTP site is
 #' @param dir the directory to save the files to
 #' @param helpers_only if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)
-#'
+#' @param keep_source_files if TRUE, keeps the original zip files in the year directory. If FALSE, they will be deleted.
 #' @returns the data and layout files for the given year
 #' @importFrom utils download.file unzip
 #' @importFrom readr read_delim
@@ -108,7 +108,14 @@ locate_download_link <- function(year = 2012,
 download_adm <- function(years = 2012,
                          adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
                          dir = "./data-raw",
-                         helpers_only = TRUE){
+                         helpers_only = TRUE,
+                         keep_source_files = FALSE){
+  # if dir directory doesn't exist, create it
+  if(!dir.exists(dir)) {
+    dir.create(dir)
+  }
+
+
   # loop over each year
   for(year in years){
 
@@ -211,6 +218,11 @@ download_adm <- function(years = 2012,
       file.remove(f)
     }
 
+
+    # remove the original zip files
+    if(keep_source_files == FALSE){
+      file.remove(list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.zip"))
+    }
     # close the progress bar
     cli::cli_progress_done()
 
@@ -384,6 +396,12 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' }
 build_helper_datasets <- function(years,dir = "./data-raw" ){
 
+  # id "./data" doesn't exist, create it
+  if(!dir.exists("./data")) {
+    dir.create("./data")
+  }
+
+
   file_info <- get_file_info(directory = dir,
                               file_suffix = ".rds")
 
@@ -423,8 +441,15 @@ build_helper_datasets <- function(years,dir = "./data-raw" ){
 
     # load the datasets
     data <- file_paths %>%
-    purrr::map(readRDS) %>%
-    dplyr::bind_rows()
+      purrr::map(~ {
+        df <- readRDS(.x) # read in the data frame
+        df[] <- lapply(df, as.character)  # Convert all columns to character
+        df # return the data frame
+      }) %>%
+      dplyr::bind_rows() # bind rows
+
+    # convert the columns back to their most approriate data type
+    data <- suppressMessages(readr::type_convert(data))
 
     # strip the file name of the aXXXXX prefix
     f <- gsub("^[a-zA-Z]{1}[0-9]{5}_", "", f)
@@ -447,5 +472,9 @@ build_helper_datasets <- function(years,dir = "./data-raw" ){
     # append the doc entry to the data.R file
     write(doc_entry, file = "./R/helper_data.R", append = TRUE)
   }
+
+
+
+
 }
 
