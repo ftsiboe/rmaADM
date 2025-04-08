@@ -91,9 +91,13 @@ locate_download_link <- function(year = 2012,
 
 #' Download the adm files for a given year
 #'
-#' @param year the year of the actuarial data master to download
+#' This function downloads the raw adm files, applies some minor cleaning operations,
+#' and converts them to .rds format for better compression.
+#'
+#' @param years the years of the actuarial data master to download
 #' @param adm_url the url where the adm FTP site is
 #' @param dir the directory to save the files to
+#' @param helpers_only if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)
 #'
 #' @returns the data and layout files for the given year
 #' @importFrom utils download.file unzip
@@ -101,92 +105,116 @@ locate_download_link <- function(year = 2012,
 #' @import cli
 #'
 #' @examples \dontrun{download_adm(year = 2012)}
-download_adm <- function(year = 2012,
+download_adm <- function(years = 2012,
                          adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
-                         dir = "./data-raw"){
+                         dir = "./data-raw",
+                         helpers_only = TRUE){
+  # loop over each year
+  for(year in years){
 
-  # create a year directory if it doesn't already exist
-  if(!dir.exists(paste0(dir,"/",year))) {
-    dir.create(paste0(dir,"/",year))
-  }
-
-  # check if there is already a file in the dir
-  if (dir.exists(paste0(dir,"/",year))) {
-    # get the list of files in the directory
-    files <- list.files(paste0(dir,"/",year), full.names = TRUE)
-
-    # if there are no files, set last_modified to NULL
-    if (length(files) == 0) {
-      last_modified <- NULL
-    } else {
-      # get the most recent file in the directory
-      most_recent_file <- files[which.max(file.info(files)$mtime)]
-
-      # get the time when the most recent file was last modified
-      last_modified <- file.info(most_recent_file)$mtime
+    # create a year directory if it doesn't already exist
+    if(!dir.exists(paste0(dir,"/",year))) {
+      dir.create(paste0(dir,"/",year))
     }
-  }
 
-  # locate the urls for the data and adm
-  urls <- locate_download_link(year = year, adm_url = adm_url)
 
-  # check if the update date is greater than the last modified date
-  if (!is.null(last_modified) && urls$update_date < last_modified) {
-    cli::cli_alert_info(paste0("The data for ",year," is already up to date. Skipping download."))
-    return(invisible(NULL))
-  }
+    # check if there is already a file in the dir
+    if (dir.exists(paste0(dir,"/",year))) {
+      # get the list of files in the directory
+      files <- list.files(paste0(dir,"/",year), full.names = TRUE)
 
-  # download the data
-  utils::download.file(urls[['data']],
-                destfile=paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
-                mode="wb")
+      # if there are no files, set last_modified to NULL
+      if (length(files) == 0) {
+        last_modified <- NULL
+      } else {
+        # get the most recent file in the directory
+        most_recent_file <- files[which.max(file.info(files)$mtime)]
 
-  # extract the data zip files
-  utils::unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
-        exdir = paste0(dir,"/",year))
+        # get the time when the most recent file was last modified
+        last_modified <- file.info(most_recent_file)$mtime
+      }
+    }
 
-  # check if the layout url exists (typically doesn't prior to 2011)
-  if("layout" %in% names(urls)){
-    # download the layout file
-    utils::download.file(urls[['layout']],
-                  destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
+    # locate the urls for the data and adm
+    urls <- locate_download_link(year = year, adm_url = adm_url)
+
+    # check if the update date is greater than the last modified date
+    if (!is.null(last_modified) && urls$update_date < last_modified) {
+      cli::cli_alert_info(paste0("The data for ",year," is already up to date. Skipping download."))
+      return(invisible(NULL))
+    }
+
+    # download the data
+    utils::download.file(urls[['data']],
+                  destfile=paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
                   mode="wb")
 
-    # extract the layout zip files
-    utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
+    # extract the data zip files
+    utils::unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
           exdir = paste0(dir,"/",year))
+
+    # check if the layout url exists (typically doesn't prior to 2011)
+    if("layout" %in% names(urls)){
+      # download the layout file
+      utils::download.file(urls[['layout']],
+                    destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
+                    mode="wb")
+
+      # extract the layout zip files
+      utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
+            exdir = paste0(dir,"/",year))
+    }
+
+    # get file paths for all txt files
+    files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
+
+    # if helpers_only is TRUE, remove any files larger than 1mb
+    if(helpers_only){
+      # get the file sizes
+      file_sizes <- file.info(files)$size
+
+      # for any files larger than 1 mb, delete the file
+      to_delete <- files[file_sizes > 1024^2]
+
+      # delete the files
+      if(length(to_delete) > 0){
+        file.remove(to_delete)
+        cli::cli_alert_info(paste0("Deleted ", length(to_delete), " files larger than 1 mb. To keep these files and clean them, set `helper_only = TRUE`." ))
+      }
+
+      # get updated list of file paths
+      files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
+
+    }
+
+    # set up a progress bar
+    cli::cli_progress_bar("Converting .txt files to .rds", total = length(files))
+
+    # loop over each txt file and convert it to .rds
+    for(f in files){
+
+      cli::cli_progress_update(status = paste0("cleaning ",f))
+
+      # get the file name without the extension
+      file_name <- clean_file_name(f, file_type_out = "rds")
+
+      # suppress read_delim console output
+      data <- readr::read_delim(f, delim = "|", col_names = TRUE, show_col_types = FALSE)
+
+      # clean the data
+      data <- clean_data(data)
+
+      # save the file as an .rds
+      saveRDS(data, file = file_name)
+
+      # delete the original .txt file
+      file.remove(f)
+    }
+
+    # close the progress bar
+    cli::cli_progress_done()
+
   }
-
-  # get file paths for all txt files
-  files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
-
-  # set up a progress bar
-  cli::cli_progress_bar("Converting .txt files to .rds", total = length(files))
-
-  # loop over each txt file and convert it to .rds
-  for(f in files){
-
-    cli::cli_progress_update()
-
-    # get the file name without the extension
-    file_name <- clean_file_name(f, file_type_out = "rds")
-
-    # suppress read_delim console output
-    data <- readr::read_delim(f, delim = "|", col_names = TRUE, show_col_types = FALSE)
-
-    # clean the data
-    data <- clean_data(data)
-
-    # save the file as an .rds
-    saveRDS(data, file = file_name)
-
-    # delete the original .txt file
-    file.remove(f)
-
-  }
-
-  # close the progress bar
-  cli::cli_progress_done()
 
 }
 
@@ -209,14 +237,14 @@ clean_file_name <- function(file_name, file_type_out = "rds"){
   # remove any instance of alphabetic character followed by 5 numbers
   #suffix <- gsub("[A-Za-z]\\d{5}", "", suffix)
 
-  # remove any years from the file name
-  suffix <- gsub("\\d{4}", "", suffix)
+  # remove the first 4 digits from the suffix if the first 4 digits are numeric digits
+  suffix <- gsub("^[0-9]{4}", "", suffix)
 
   # remove "YTD"
   suffix <- gsub("YTD", "", suffix)
 
-  # remove "_"
-  suffix <- gsub("_", "", suffix)
+  # remove "_" unless "_" follows a number
+  suffix <- gsub("(?<![0-9])_(?![0-9])", "", suffix, perl = TRUE)
 
   # convert from camel case to snake case
   suffix <- gsub("([a-z])([A-Z])", "\\1_\\2", suffix)
@@ -260,9 +288,24 @@ clean_data <- function(df){
   # enforce data types
   df <- suppressMessages(readr::type_convert(df))
 
+  # identify date
+  date_cols <- grep("date", names(df), value = TRUE)
+
+  # try to parse dates
+  for(col in date_cols){
+    input = as.character(df[[col]]) # convert to character
+    input <- as.character(gsub("[^0-9]", "", input)) # remove non-numeric characters
+    try({
+      converted_dates <- readr::parse_date(input, format = "%Y%m%d", na = c("", "NA"))
+      # if converted dates are not all NA
+      if(!all(is.na(converted_dates))) {
+        df[[col]] <- converted_dates
+      }
+    })
+  }
+
   # return the df
   return(df)
-
 
 }
 
@@ -310,45 +353,6 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 }
 
 
-#' Parse Dates from Compact YYYYMMDD Format
-#'
-#' Converts a vector of dates in the compact \code{"YYYYMMDD"} format (as character or numeric)
-#' into proper \code{Date} objects. Handles \code{NA} values gracefully.
-#'
-#' @param x A character or numeric vector representing dates in \code{"YYYYMMDD"} format.
-#'
-#' @return A \code{Date} vector with the same length as \code{x}. Invalid or missing entries are returned as \code{NA}.
-#'
-#' @examples
-#' \dontrun{
-#' parse_date(c("20240101", "20231231"))
-#' parse_date(c(20240101, NA, 20231115))
-#' }
-#'
-parse_date <- function(x) {
-  # Ensure character format to handle numeric input safely
-  x <- as.character(x)
-
-  # Identify which elements are NA
-  is_na <- is.na(x)
-
-  # Initialize result vector with NA
-  result <- rep(as.Date(NA), length(x))
-
-  # Process non-NA elements
-  if (any(!is_na)) {
-    year <- substr(x[!is_na], 1, 4)
-    month <- substr(x[!is_na], 5, 6)
-    day <- substr(x[!is_na], 7, 8)
-
-    date_str <- paste(year, month, day, sep = "-")
-    result[!is_na] <- as.Date(date_str)
-  }
-
-  return(result)
-}
-
-
 
 #' Build Helper Datasets from Raw RDS Files
 #'
@@ -378,28 +382,25 @@ parse_date <- function(x) {
 #' @examples \dontrun{
 #' build_helper_datasets(years = 2020:2022)
 #' }
-build_helper_datasets <- function(years,dir = "./data-raw"){
+build_helper_datasets <- function(years,dir = "./data-raw" ){
 
   file_info <- get_file_info(directory = dir,
                               file_suffix = ".rds")
 
-  # keep only file info for the years specified
-  file_info <- file_info %>%
-    filter(grepl(paste(years, collapse = "|"), file_info$file_path))
+  # Keep only file info for the years specified
+  file_info <- file_info[grepl(paste(years, collapse = "|"), file_info$file_path), ]
 
-  # for each year, if the file path contains that year, add a column with the year
-  file_info <- file_info %>%
-    mutate(year = as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_info$file_path)))
+  # For each year, extract the year from the file path and convert to numeric
+  file_info$year <- as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_info$file_path))
 
-  # add a column with the file name with out any of the parent folders
-  file_info <- file_info %>%
-    mutate(file_name = gsub(paste0(dir, "/"), "", file_path)) %>%
-    mutate(file_name = gsub("[0-9]{4}/", "", file_name)) %>%
-    mutate(file_name = gsub(".rds", "", file_name))
+  # Add a column with the file name without any of the parent folders
+  file_info$file_name <- gsub(paste0(dir, "/"), "", file_info$file_path)
+  file_info$file_name <- gsub("[0-9]{4}/", "", file_info$file_name)
+  file_info$file_name <- gsub(".rds", "", file_info$file_name)
 
-  # keep only files that are less than 1 MB and don't contain "rate"
+  # keep only files that are less than 1 MB
   file_info <- file_info %>%
-    filter(file_info$size_mb <= 1 & !grepl("rate", file_info$file_name, ignore.case = TRUE))
+    filter(file_info$size_mb <= 1)
 
   # if "./R/data.R" already exists, rename the file name with the data appended
   if(file.exists("./R/helper_data.R")){
@@ -415,15 +416,18 @@ build_helper_datasets <- function(years,dir = "./data-raw"){
   # specified by the file_path and then row bind them together
   # and save them as a .rds file with the name of the file_name
   for(f in unique(file_info$file_name)){
+
+
     # get the file paths for the current file name
-    file_paths <- file_info %>%
-      filter(file_info$file_name == f) %>%
-      pull(file_path)
+    file_paths <- file_info[file_info$file_name == f, "file_path"]
 
     # load the datasets
     data <- file_paths %>%
     purrr::map(readRDS) %>%
     dplyr::bind_rows()
+
+    # strip the file name of the aXXXXX prefix
+    f <- gsub("^[a-zA-Z]{1}[0-9]{5}_", "", f)
 
     # Dynamically assign the name of the data to the value in f
     assign(f, data)

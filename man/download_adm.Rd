@@ -5,23 +5,27 @@
 \title{Download the adm files for a given year}
 \usage{
 download_adm(
-  year = 2012,
+  years = 2012,
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
-  dir = "./data-raw"
+  dir = "./data-raw",
+  helpers_only = TRUE
 )
 }
 \arguments{
-\item{year}{the year of the actuarial data master to download}
+\item{years}{the years of the actuarial data master to download}
 
 \item{adm_url}{the url where the adm FTP site is}
 
 \item{dir}{the directory to save the files to}
+
+\item{helpers_only}{if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)}
 }
 \value{
 the data and layout files for the given year
 }
 \description{
-Download the adm files for a given year
+This function downloads the raw adm files, applies some minor cleaning operations,
+and converts them to .rds format for better compression.
 }
 \examples{
 \dontrun{download_adm(year = 2012)}
