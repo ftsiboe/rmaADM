@@ -146,10 +146,14 @@ download_adm <- function(years = 2012,
     urls <- locate_download_link(year = year, adm_url = adm_url)
 
     # check if the update date is greater than the last modified date
+    skip = F
     if (!is.null(last_modified) && urls$update_date < last_modified) {
       cli::cli_alert_info(paste0("The data for ",year," is already up to date. Skipping download."))
-      return(invisible(NULL))
+      skip = T
     }
+
+    # if skip = F, proceed with downloading the data
+    if(skip == F){
 
     # download the data
     utils::download.file(urls[['data']],
@@ -223,6 +227,9 @@ download_adm <- function(years = 2012,
     if(keep_source_files == FALSE){
       file.remove(list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.zip"))
     }
+
+    }
+
     # close the progress bar
     cli::cli_progress_done()
 
@@ -394,7 +401,7 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' @examples \dontrun{
 #' build_helper_datasets(years = 2020:2022)
 #' }
-build_helper_datasets <- function(years,dir = "./data-raw" ){
+build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 ){
 
   # id "./data" doesn't exist, create it
   if(!dir.exists("./data")) {
@@ -416,9 +423,9 @@ build_helper_datasets <- function(years,dir = "./data-raw" ){
   file_info$file_name <- gsub("[0-9]{4}/", "", file_info$file_name)
   file_info$file_name <- gsub(".rds", "", file_info$file_name)
 
-  # keep only files that are less than 1 MB
+  # keep only files that are less than the size threshold (in MB)
   file_info <- file_info %>%
-    filter(file_info$size_mb <= 1)
+    filter(file_info$size_mb <= size_threshold)
 
   # if "./R/data.R" already exists, rename the file name with the data appended
   if(file.exists("./R/helper_data.R")){

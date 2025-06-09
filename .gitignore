@@ -2,5 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-data-raw/
+# Ignore all contents of the data-raw directory
+data-raw/*
+# But do NOT ignore .R files within data-raw directory
+!data-raw/*.R
 .DS_Store
