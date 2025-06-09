@@ -109,6 +109,7 @@ download_adm <- function(years = 2012,
                          adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
                          dir = "./data-raw",
                          helpers_only = TRUE,
+                         helpers_size_threshold = 10,
                          keep_source_files = FALSE){
   # if dir directory doesn't exist, create it
   if(!dir.exists(dir)) {
@@ -185,7 +186,7 @@ download_adm <- function(years = 2012,
       file_sizes <- file.info(files)$size
 
       # for any files larger than 1 mb, delete the file
-      to_delete <- files[file_sizes > 1024^2]
+      to_delete <- files[file_sizes > (1024* helpers_size_threshold)^2]
 
       # delete the files
       if(length(to_delete) > 0){
