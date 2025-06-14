@@ -65,8 +65,8 @@ The following table details the helper data sets included in the package. Any of
 
 
   # define descriptions of the data set
-  descriptions_list = list("adm_layout" = "A dataset containing the layout of the ADM data.",
-                           "interval" = "A dataset containing info on PRF intervals")
+  descriptions_list = list("AdmLayout" = "A dataset containing the layout of the ADM data.",
+                           "Interval" = "A dataset containing info on PRF intervals")
 
   # merge the descriptions into the dataframe
   df <- df %>%
