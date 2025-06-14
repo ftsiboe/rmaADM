@@ -98,6 +98,7 @@ locate_download_link <- function(year = 2012,
 #' @param adm_url the url where the adm FTP site is
 #' @param dir the directory to save the files to
 #' @param helpers_only if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)
+#' @param helpers_size_threshold If `helpers_only` is `TRUE`, `helpers_size_threshold` indicates the size (in mb) above which data sets are kept. I.e. anything below `helpers_size_threshold` is assumed to be a helper dataset.
 #' @param keep_source_files if TRUE, keeps the original zip files in the year directory. If FALSE, they will be deleted.
 #' @returns the data and layout files for the given year
 #' @importFrom utils download.file unzip
@@ -109,7 +110,7 @@ download_adm <- function(years = 2012,
                          adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
                          dir = "./data-raw",
                          helpers_only = TRUE,
-                         helpers_size_threshold = 10,
+                         helpers_size_threshold = 5,
                          keep_source_files = FALSE){
   # if dir directory doesn't exist, create it
   if(!dir.exists(dir)) {
@@ -191,7 +192,7 @@ download_adm <- function(years = 2012,
       # delete the files
       if(length(to_delete) > 0){
         file.remove(to_delete)
-        cli::cli_alert_info(paste0("Deleted ", length(to_delete), " files larger than 1 mb. To keep these files and clean them, set `helper_only = TRUE`." ))
+        cli::cli_alert_info(paste0("Deleted ", length(to_delete), paste0(" files larger than ",helpers_size_threshold," mb. To keep these files and clean them, set `helper_only = TRUE`." )))
       }
 
       # get updated list of file paths
@@ -237,6 +238,165 @@ download_adm <- function(years = 2012,
   }
 
 }
+
+
+#' Download and convert USDA RMA Actuarial Data Master files (.txt) to .rds, memory-efficiently
+#'
+#' Downloads ADM files for the specified years, extracts them,
+#' converts each `.txt` to `.rds` using `data.table::fread()` (character columns by default)
+#' for lower memory overhead, cleans via `clean_data()`, and optionally
+#' removes helper files and source archives.
+#'
+#' @param years Integer vector. Years to download (e.g., `c(2012, 2013)`).
+#' @param adm_url Character. Base URL for the ADM repository.
+#' @param dir Character. Output directory for download and processing.
+#' @param helpers_only Logical. If `TRUE`, deletes `.txt` files larger than `helpers_size_threshold` (in MB).
+#' @param helpers_size_threshold Numeric. Size threshold (in MB) for helper file removal.
+#' @param keep_source_files Logical. If `FALSE`, removes downloaded `.zip` archives after extraction.
+#' @return Invisibly returns `NULL`. Processed `.rds` files are written to disk.
+#' @export
+#' @importFrom data.table fread rbindlist
+#' @importFrom cli cli_alert_info cli_progress_bar cli_progress_update cli_progress_done
+#' @importFrom utils download.file unzip
+download_adm2 <- function(
+    years = 2012,
+    adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
+    dir = "./data-raw",
+    helpers_only = TRUE,
+    helpers_size_threshold = 5,
+    keep_source_files = FALSE
+) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+  }
+
+  for (year in years) {
+    year_dir <- file.path(dir, as.character(year))
+    if (!dir.exists(year_dir)) {
+      dir.create(year_dir)
+    }
+
+    # determine the most recent modification time of any file in year_dir
+    existing_files <- list.files(year_dir, full.names = TRUE)
+    if (length(existing_files) == 0) {
+      last_modified <- NULL
+    } else {
+      most_recent <- existing_files[which.max(file.info(existing_files)$mtime)]
+      last_modified <- file.info(most_recent)$mtime
+    }
+
+    # locate download URLs
+    urls <- locate_download_link(year = year, adm_url = adm_url)
+
+    # skip if already up to date
+    if (!is.null(last_modified) && urls$update_date < last_modified) {
+      cli::cli_alert_info("Data for {year} is up to date; skipping.")
+      next
+    }
+
+    # download & unzip data
+    data_zip <- file.path(year_dir, sprintf("adm_ytd_%s.zip", year))
+    utils::download.file(urls$data, data_zip, mode = "wb")
+    utils::unzip(data_zip, exdir = year_dir)
+    if (!keep_source_files) file.remove(data_zip)
+
+    # optionally download & unzip layout
+    if ("layout" %in% names(urls)) {
+      layout_zip <- file.path(year_dir, sprintf("layout_%s.zip", year))
+      utils::download.file(urls$layout, layout_zip, mode = "wb")
+      utils::unzip(layout_zip, exdir = year_dir)
+      if (!keep_source_files) file.remove(layout_zip)
+    }
+
+    # list .txt files
+    txt_files <- list.files(year_dir, pattern = "\\.txt$", full.names = TRUE)
+
+    # remove large helpers if requested
+    if (helpers_only && length(txt_files)) {
+      sizes <- file.info(txt_files)$size
+      to_del <- txt_files[sizes > (1024^2) * helpers_size_threshold]
+      if (length(to_del)) {
+        file.remove(to_del)
+        cli::cli_alert_info("Deleted %d helper files > %s MB", length(to_del), helpers_size_threshold)
+      }
+      txt_files <- setdiff(txt_files, to_del)
+    }
+
+    # convert each .txt to .rds
+    for (f in txt_files) {
+
+      # Set chunk size for reading large files
+      chunk_size <- 1000000  # Adjust based on your memory constraints
+
+      # Get total number of rows to determine chunks
+      total_rows <- data.table::fread(
+        input = f,
+        sep = "|",
+        select = 1L,
+        showProgress = FALSE
+      ) |> nrow()
+
+      # Initialize variables
+      out_rds <- sub("\\.txt$", ".rds", f)
+      first_chunk <- TRUE
+      total_chunks <- ceiling(total_rows / chunk_size)
+
+
+
+      # Read and process in chunks
+      for (i in seq_len(total_chunks)) {
+        start_row <- (i - 1) * chunk_size + 1
+        end_row <- min(i * chunk_size, total_rows)
+
+        # Read chunk
+        dt <- data.table::fread(
+          input = f,
+          sep = "|",
+          colClasses = "character",
+          showProgress = FALSE,
+          skip = start_row - 1,
+          nrows = end_row - start_row + 1
+        )
+
+        # Clean chunk
+        dt <- clean_data(dt)
+
+        if(i == 1){
+          dt_names = names(dt)
+        } else {
+          colnames(dt) <- dt_names
+        }
+
+
+
+        # Save/append to RDS
+        if (first_chunk) {
+          saveRDS(dt, out_rds, compress = "xz")
+          first_chunk <- FALSE
+        } else {
+          # Read existing data, combine with new chunk, and save
+          existing_dt <- readRDS(out_rds)
+          combined_dt <- rbind(existing_dt, dt)
+          saveRDS(combined_dt, out_rds, compress = "xz")
+          rm(existing_dt, combined_dt)
+        }
+
+
+        # Cleanup chunk
+        rm(dt)
+        gc()
+      }
+
+
+      # Final cleanup
+      file.remove(f)
+
+    }
+  }
+
+  invisible(NULL)
+}
+
 
 #' Clean the file name
 #'
@@ -381,6 +541,7 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' corresponding documentation entries in `./R/helper_data.R`.
 #'
 #' @param years A numeric vector of years used to filter the input `.rds` files by year in their file paths.
+#' @param size_threshold any files below the size_threshold (in mb) are assumed to be helper data sets and kept. Applied to the maximum file size across all years.
 #' @param dir A character string specifying the directory containing the raw `.rds` files.
 #'   Defaults to \code{"./data-raw"}.
 #'
@@ -424,9 +585,18 @@ build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 )
   file_info$file_name <- gsub("[0-9]{4}/", "", file_info$file_name)
   file_info$file_name <- gsub(".rds", "", file_info$file_name)
 
-  # keep only files that are less than the size threshold (in MB)
+  # extract the actuarial code from each file path (e.x. A00010)
+  file_info$adm_code <- substr(basename(file_info$file_path),6,11)
+
+  # keep only files that are less than the size threshold (in MB). Applied to
+  # maximum size over all years
+  max_sizes <- file_info %>%
+    group_by(.data$adm_code) %>%
+    summarize(max_size = max(.data$size_mb)) %>%
+    filter(.data$max_size < size_threshold)
+
   file_info <- file_info %>%
-    filter(file_info$size_mb <= size_threshold)
+    filter(.data$adm_code %in% max_sizes$adm_code)
 
   # if "./R/data.R" already exists, rename the file name with the data appended
   if(file.exists("./R/helper_data.R")){
@@ -441,11 +611,11 @@ build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 )
   # load all the datasets corresponding to that file name as
   # specified by the file_path and then row bind them together
   # and save them as a .rds file with the name of the file_name
-  for(f in unique(file_info$file_name)){
+  for(f in unique(file_info$adm_code)){
 
 
     # get the file paths for the current file name
-    file_paths <- file_info[file_info$file_name == f, "file_path"]
+    file_paths <- file_info[file_info$adm_code == f, "file_path"]
 
     # load the datasets
     data <- file_paths %>%
@@ -459,24 +629,27 @@ build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 )
     # convert the columns back to their most approriate data type
     data <- suppressMessages(readr::type_convert(data))
 
-    # strip the file name of the aXXXXX prefix
-    f <- gsub("^[a-zA-Z]{1}[0-9]{5}_", "", f)
+
+    # Remove both prefix and suffix to get file name to export
+    file_out <- unique(gsub("^\\d{4}_[A-Za-z]\\d{5}_|_YTD|\\.rds", "",
+                     basename(file_paths)))
+
 
     # Dynamically assign the name of the data to the value in f
-    assign(f, data)
+    assign(file_out, data)
 
     # Save the named object to an .rda file
-    save(list = f, file = paste0("./data/", f, ".rda"), compress = "xz")
+    save(list = file_out, file = paste0("./data/", file_out, ".rda"), compress = "xz")
 
 
     # add a documentation entry in ./data/data.R for the dataset
-    doc_entry <- paste0("#' @name ", f, "\n",
-                        "#' @title ", f, "\n",
-                        "#' @description A combined dataset for ", f, "\n",
+    doc_entry <- paste0("#' @name ", file_out, "\n",
+                        "#' @title ", file_out, "\n",
+                        "#' @description A combined dataset for ", file_out, "\n",
                         "#' @format A data frame with ", nrow(data), " rows and ", ncol(data), " columns covering ",min(data$reinsurance_year),"-",max(data$reinsurance_year),".\n",
                         "#' @source Actuarial Data Master\n",
-                        "#' @usage data(",f,")", "\n",
-                        paste0('"',f,'"'))
+                        "#' @usage data(",file_out,")", "\n",
+                        paste0('"',file_out,'"'))
     # append the doc entry to the data.R file
     write(doc_entry, file = "./R/helper_data.R", append = TRUE)
   }

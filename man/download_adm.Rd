@@ -9,6 +9,7 @@ download_adm(
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
   dir = "./data-raw",
   helpers_only = TRUE,
+  helpers_size_threshold = 5,
   keep_source_files = FALSE
 )
 }
@@ -20,6 +21,8 @@ download_adm(
 \item{dir}{the directory to save the files to}
 
 \item{helpers_only}{if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)}
+
+\item{helpers_size_threshold}{If \code{helpers_only} is \code{TRUE}, \code{helpers_size_threshold} indicates the size (in mb) above which data sets are kept. I.e. anything below \code{helpers_size_threshold} is assumed to be a helper dataset.}
 
 \item{keep_source_files}{if TRUE, keeps the original zip files in the year directory. If FALSE, they will be deleted.}
 }

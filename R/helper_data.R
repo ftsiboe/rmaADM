@@ -1,205 +1,226 @@
 #' @title Actuarial Data Master Helper Datasets
 
-#' @name adm_layout
-#' @title adm_layout
-#' @description A combined dataset for adm_layout
-#' @format A data frame with 938 rows and 18 columns covering 2011-2011.
+#' @name AdmLayout
+#' @title AdmLayout
+#' @description A combined dataset for AdmLayout
+#' @format A data frame with 17755 rows and 18 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(adm_layout)
-"adm_layout"
-#' @name insurance_offer
-#' @title insurance_offer
-#' @description A combined dataset for insurance_offer
-#' @format A data frame with 736703 rows and 34 columns covering 2011-2011.
+#' @usage data(AdmLayout)
+"AdmLayout"
+#' @name Quality
+#' @title Quality
+#' @description A combined dataset for Quality
+#' @format A data frame with 8006 rows and 12 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(insurance_offer)
-"insurance_offer"
-#' @name map
-#' @title map
-#' @description A combined dataset for map
-#' @format A data frame with 1537895 rows and 28 columns covering 2011-2011.
+#' @usage data(Quality)
+"Quality"
+#' @name SubsidyPercent
+#' @title SubsidyPercent
+#' @description A combined dataset for SubsidyPercent
+#' @format A data frame with 9543 rows and 22 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(map)
-"map"
-#' @name quality
-#' @title quality
-#' @description A combined dataset for quality
-#' @format A data frame with 450 rows and 12 columns covering 2011-2011.
+#' @usage data(SubsidyPercent)
+"SubsidyPercent"
+#' @name AgrCommodity
+#' @title AgrCommodity
+#' @description A combined dataset for AgrCommodity
+#' @format A data frame with 6170 rows and 15 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(quality)
-"quality"
-#' @name subsidy_percent
-#' @title subsidy_percent
-#' @description A combined dataset for subsidy_percent
-#' @format A data frame with 293 rows and 14 columns covering 2011-2011.
+#' @usage data(AgrCommodity)
+"AgrCommodity"
+#' @name Class
+#' @title Class
+#' @description A combined dataset for Class
+#' @format A data frame with 413 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(subsidy_percent)
-"subsidy_percent"
-#' @name date
-#' @title date
-#' @description A combined dataset for date
-#' @format A data frame with 742121 rows and 38 columns covering Inf--Inf.
+#' @usage data(Class)
+"Class"
+#' @name Commodity
+#' @title Commodity
+#' @description A combined dataset for Commodity
+#' @format A data frame with 2015 rows and 12 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(date)
-"date"
-#' @name agr_commodity
-#' @title agr_commodity
-#' @description A combined dataset for agr_commodity
-#' @format A data frame with 399 rows and 13 columns covering 2011-2011.
+#' @usage data(Commodity)
+"Commodity"
+#' @name CommodityType
+#' @title CommodityType
+#' @description A combined dataset for CommodityType
+#' @format A data frame with 5593 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(agr_commodity)
-"agr_commodity"
-#' @name class
-#' @title class
-#' @description A combined dataset for class
-#' @format A data frame with 30 rows and 9 columns covering 2011-2011.
+#' @usage data(CommodityType)
+"CommodityType"
+#' @name County
+#' @title County
+#' @description A combined dataset for County
+#' @format A data frame with 47854 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(class)
-"class"
-#' @name commodity
-#' @title commodity
-#' @description A combined dataset for commodity
-#' @format A data frame with 132 rows and 11 columns covering 2011-2011.
+#' @usage data(County)
+"County"
+#' @name CroppingPractice
+#' @title CroppingPractice
+#' @description A combined dataset for CroppingPractice
+#' @format A data frame with 1263 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(commodity)
-"commodity"
-#' @name commodity_type
-#' @title commodity_type
-#' @description A combined dataset for commodity_type
-#' @format A data frame with 329 rows and 9 columns covering 2011-2011.
+#' @usage data(CroppingPractice)
+"CroppingPractice"
+#' @name InsurancePlan
+#' @title InsurancePlan
+#' @description A combined dataset for InsurancePlan
+#' @format A data frame with 412 rows and 10 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(commodity_type)
-"commodity_type"
-#' @name county
-#' @title county
-#' @description A combined dataset for county
-#' @format A data frame with 3190 rows and 9 columns covering 2011-2011.
+#' @usage data(InsurancePlan)
+"InsurancePlan"
+#' @name IntendedUse
+#' @title IntendedUse
+#' @description A combined dataset for IntendedUse
+#' @format A data frame with 186 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(county)
-"county"
-#' @name cropping_practice
-#' @title cropping_practice
-#' @description A combined dataset for cropping_practice
-#' @format A data frame with 72 rows and 9 columns covering 2011-2011.
+#' @usage data(IntendedUse)
+"IntendedUse"
+#' @name Interval
+#' @title Interval
+#' @description A combined dataset for Interval
+#' @format A data frame with 872 rows and 11 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(cropping_practice)
-"cropping_practice"
-#' @name insurance_plan
-#' @title insurance_plan
-#' @description A combined dataset for insurance_plan
-#' @format A data frame with 20 rows and 10 columns covering 2011-2011.
+#' @usage data(Interval)
+"Interval"
+#' @name IrrigationPractice
+#' @title IrrigationPractice
+#' @description A combined dataset for IrrigationPractice
+#' @format A data frame with 45 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(insurance_plan)
-"insurance_plan"
-#' @name intended_use
-#' @title intended_use
-#' @description A combined dataset for intended_use
-#' @format A data frame with 8 rows and 9 columns covering 2011-2011.
+#' @usage data(IrrigationPractice)
+"IrrigationPractice"
+#' @name OrganicPractice
+#' @title OrganicPractice
+#' @description A combined dataset for OrganicPractice
+#' @format A data frame with 45 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(intended_use)
-"intended_use"
-#' @name interval
-#' @title interval
-#' @description A combined dataset for interval
-#' @format A data frame with 46 rows and 11 columns covering 2011-2011.
+#' @usage data(OrganicPractice)
+"OrganicPractice"
+#' @name Practice
+#' @title Practice
+#' @description A combined dataset for Practice
+#' @format A data frame with 17660 rows and 10 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(interval)
-"interval"
-#' @name irrigation_practice
-#' @title irrigation_practice
-#' @description A combined dataset for irrigation_practice
-#' @format A data frame with 3 rows and 9 columns covering 2011-2011.
+#' @usage data(Practice)
+"Practice"
+#' @name State
+#' @title State
+#' @description A combined dataset for State
+#' @format A data frame with 750 rows and 11 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(irrigation_practice)
-"irrigation_practice"
-#' @name organic_practice
-#' @title organic_practice
-#' @description A combined dataset for organic_practice
-#' @format A data frame with 3 rows and 9 columns covering 2011-2011.
+#' @usage data(State)
+"State"
+#' @name SubClass
+#' @title SubClass
+#' @description A combined dataset for SubClass
+#' @format A data frame with 80 rows and 9 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(organic_practice)
-"organic_practice"
-#' @name practice
-#' @title practice
-#' @description A combined dataset for practice
-#' @format A data frame with 1020 rows and 10 columns covering 2011-2011.
+#' @usage data(SubClass)
+"SubClass"
+#' @name Type
+#' @title Type
+#' @description A combined dataset for Type
+#' @format A data frame with 8579 rows and 10 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(practice)
-"practice"
-#' @name state
-#' @title state
-#' @description A combined dataset for state
-#' @format A data frame with 50 rows and 11 columns covering 2011-2011.
+#' @usage data(Type)
+"Type"
+#' @name Beta
+#' @title Beta
+#' @description A combined dataset for Beta
+#' @format A data frame with 1887000 rows and 10 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(state)
-"state"
-#' @name sub_class
-#' @title sub_class
-#' @description A combined dataset for sub_class
-#' @format A data frame with 4 rows and 9 columns covering 2011-2011.
+#' @usage data(Beta)
+"Beta"
+#' @name UnitDiscount
+#' @title UnitDiscount
+#' @description A combined dataset for UnitDiscount
+#' @format A data frame with 49741 rows and 28 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(sub_class)
-"sub_class"
-#' @name type
-#' @title type
-#' @description A combined dataset for type
-#' @format A data frame with 492 rows and 10 columns covering 2011-2011.
+#' @usage data(UnitDiscount)
+"UnitDiscount"
+#' @name Statement
+#' @title Statement
+#' @description A combined dataset for Statement
+#' @format A data frame with 776 rows and 10 columns covering 2011-2025.
 #' @source Actuarial Data Master
-#' @usage data(type)
-"type"
-#' @name agr_rate
-#' @title agr_rate
-#' @description A combined dataset for agr_rate
-#' @format A data frame with 1136526 rows and 32 columns covering Inf--Inf.
+#' @usage data(Statement)
+"Statement"
+#' @name DocumentStructure
+#' @title DocumentStructure
+#' @description A combined dataset for DocumentStructure
+#' @format A data frame with 274 rows and 11 columns covering 2013-2025.
 #' @source Actuarial Data Master
-#' @usage data(agr_rate)
-"agr_rate"
-#' @name base_rate
-#' @title base_rate
-#' @description A combined dataset for base_rate
-#' @format A data frame with 672077 rows and 39 columns covering Inf--Inf.
+#' @usage data(DocumentStructure)
+"DocumentStructure"
+#' @name EndorsementLength
+#' @title EndorsementLength
+#' @description A combined dataset for EndorsementLength
+#' @format A data frame with 13 rows and 8 columns covering 2013-2025.
 #' @source Actuarial Data Master
-#' @usage data(base_rate)
-"base_rate"
-#' @name beta
-#' @title beta
-#' @description A combined dataset for beta
-#' @format A data frame with 121000 rows and 10 columns covering 2011-2011.
+#' @usage data(EndorsementLength)
+"EndorsementLength"
+#' @name InsuranceOption
+#' @title InsuranceOption
+#' @description A combined dataset for InsuranceOption
+#' @format A data frame with 702 rows and 8 columns covering 2013-2025.
 #' @source Actuarial Data Master
-#' @usage data(beta)
-"beta"
-#' @name sub_county_rate
-#' @title sub_county_rate
-#' @description A combined dataset for sub_county_rate
-#' @format A data frame with 149820 rows and 27 columns covering Inf--Inf.
+#' @usage data(InsuranceOption)
+"InsuranceOption"
+#' @name RateMethod
+#' @title RateMethod
+#' @description A combined dataset for RateMethod
+#' @format A data frame with 52 rows and 8 columns covering 2013-2025.
 #' @source Actuarial Data Master
-#' @usage data(sub_county_rate)
-"sub_county_rate"
-#' @name proration
-#' @title proration
-#' @description A combined dataset for proration
-#' @format A data frame with 2742828 rows and 26 columns covering Inf--Inf.
+#' @usage data(RateMethod)
+"RateMethod"
+#' @name SpoiGroup
+#' @title SpoiGroup
+#' @description A combined dataset for SpoiGroup
+#' @format A data frame with 1494 rows and 12 columns covering 2013-2025.
 #' @source Actuarial Data Master
-#' @usage data(proration)
-"proration"
-#' @name unit_discount
-#' @title unit_discount
-#' @description A combined dataset for unit_discount
-#' @format A data frame with 246 rows and 28 columns covering 2011-2011.
+#' @usage data(SpoiGroup)
+"SpoiGroup"
+#' @name AreaDataSource
+#' @title AreaDataSource
+#' @description A combined dataset for AreaDataSource
+#' @format A data frame with 985 rows and 21 columns covering 2017-2025.
 #' @source Actuarial Data Master
-#' @usage data(unit_discount)
-"unit_discount"
-#' @name historical_revenue_capping
-#' @title historical_revenue_capping
-#' @description A combined dataset for historical_revenue_capping
-#' @format A data frame with 141168 rows and 46 columns covering Inf--Inf.
+#' @usage data(AreaDataSource)
+"AreaDataSource"
+#' @name ProductionArea
+#' @title ProductionArea
+#' @description A combined dataset for ProductionArea
+#' @format A data frame with 1775968 rows and 11 columns covering 2017-2025.
 #' @source Actuarial Data Master
-#' @usage data(historical_revenue_capping)
-"historical_revenue_capping"
-#' @name statement
-#' @title statement
-#' @description A combined dataset for statement
-#' @format A data frame with 160686 rows and 9 columns covering NA-NA.
+#' @usage data(ProductionArea)
+"ProductionArea"
+#' @name HipRate
+#' @title HipRate
+#' @description A combined dataset for HipRate
+#' @format A data frame with 51013 rows and 13 columns covering 2020-2025.
 #' @source Actuarial Data Master
-#' @usage data(statement)
-"statement"
+#' @usage data(HipRate)
+"HipRate"
+#' @name ContiguousCounty
+#' @title ContiguousCounty
+#' @description A combined dataset for ContiguousCounty
+#' @format A data frame with 104103 rows and 11 columns covering 2020-2025.
+#' @source Actuarial Data Master
+#' @usage data(ContiguousCounty)
+"ContiguousCounty"
+#' @name HipTriggeringEvent
+#' @title HipTriggeringEvent
+#' @description A combined dataset for HipTriggeringEvent
+#' @format A data frame with 57 rows and 8 columns covering Inf--Inf.
+#' @source Actuarial Data Master
+#' @usage data(HipTriggeringEvent)
+"HipTriggeringEvent"
+#' @name PaceDate
+#' @title PaceDate
+#' @description A combined dataset for PaceDate
+#' @format A data frame with 133801 rows and 12 columns covering 2022-2025.
+#' @source Actuarial Data Master
+#' @usage data(PaceDate)
+"PaceDate"
