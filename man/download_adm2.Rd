@@ -2,36 +2,50 @@
 % Please edit documentation in R/helpers.R
 \name{download_adm2}
 \alias{download_adm2}
-\title{Download and convert USDA RMA Actuarial Data Master files (.txt) to .rds, memory-efficiently}
+\title{Download and process USDA RMA Actuarial Data Master (ADM) files}
 \usage{
 download_adm2(
   years = 2012,
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
   dir = "./data-raw",
   helpers_only = TRUE,
-  helpers_size_threshold = 5,
-  keep_source_files = FALSE
+  helper_codes = c("A01090", "A00070"),
+  keep_source_files = FALSE,
+  overwrite = FALSE
 )
 }
 \arguments{
-\item{years}{Integer vector. Years to download (e.g., \code{c(2012, 2013)}).}
+\item{years}{Integer vector. The years of ADM data to download (e.g., \code{c(2012, 2013)}).}
 
-\item{adm_url}{Character. Base URL for the ADM repository.}
+\item{adm_url}{Character. Base URL for the ADM repository. Defaults to the public USDA RMA FTP URL.}
 
-\item{dir}{Character. Output directory for download and processing.}
+\item{dir}{Character. Local directory where files will be downloaded and processed. Created if it does not exist.}
 
-\item{helpers_only}{Logical. If \code{TRUE}, deletes \code{.txt} files larger than \code{helpers_size_threshold} (in MB).}
+\item{helpers_only}{Logical. If \code{TRUE}, deletes \code{.txt} files not matching \code{helper_codes} to conserve space.}
 
-\item{helpers_size_threshold}{Numeric. Size threshold (in MB) for helper file removal.}
+\item{helper_codes}{Character vector. File name patterns to retain when \code{helpers_only = TRUE}.}
 
 \item{keep_source_files}{Logical. If \code{FALSE}, removes downloaded \code{.zip} archives after extraction.}
+
+\item{overwrite}{Logical. If \code{TRUE}, re-downloads and re-processes files even if the existing data appears up to date.}
 }
 \value{
-Invisibly returns \code{NULL}. Processed \code{.rds} files are written to disk.
+Invisibly returns \code{NULL}. Processed \code{.rds} files are written to disk in the specified directory.
 }
 \description{
-Downloads ADM files for the specified years, extracts them,
-converts each \code{.txt} to \code{.rds} using \code{data.table::fread()} (character columns by default)
-for lower memory overhead, cleans via \code{clean_data()}, and optionally
-removes helper files and source archives.
+Downloads ADM data files for the specified years from the USDA RMA actuarial data master repository,
+extracts them, converts each \code{.txt} file to a memory-efficient \code{.rds} format using \code{data.table::fread()},
+and processes the data in chunks to minimize RAM usage. Helper files can optionally be retained or filtered
+based on matching codes. Source archives can also be deleted after extraction.
+}
+\details{
+The function reads each \code{.txt} file in chunks (default 1 million rows at a time),
+applies a \code{clean_data()} function to each chunk (assumed to be defined elsewhere),
+and writes the results to compressed \code{.rds} files using \code{xz} compression.
+Files are only re-downloaded if the remote data is newer than the latest local file,
+unless \code{overwrite = TRUE}.
+}
+\note{
+Files are read using \code{data.table::fread()} with all columns as character to reduce type inference overhead.
+Chunked processing is used to reduce peak memory usage during conversion.
 }

@@ -3,9 +3,9 @@
 \docType{data}
 \name{SubsidyPercent}
 \alias{SubsidyPercent}
-\title{SubsidyPercent}
+\title{Actuarial Data Master Helper Datasets}
 \format{
-A data frame with 9543 rows and 22 columns covering 2011-2025.
+A data frame with 1331 rows and 17 columns covering 2011-2014.
 }
 \source{
 Actuarial Data Master

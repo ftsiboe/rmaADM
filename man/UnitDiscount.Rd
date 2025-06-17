@@ -5,7 +5,7 @@
 \alias{UnitDiscount}
 \title{UnitDiscount}
 \format{
-A data frame with 49741 rows and 28 columns covering 2011-2025.
+A data frame with 11755 rows and 28 columns covering 2011-2014.
 }
 \source{
 Actuarial Data Master

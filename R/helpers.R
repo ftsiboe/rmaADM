@@ -240,31 +240,45 @@ download_adm <- function(years = 2012,
 }
 
 
-#' Download and convert USDA RMA Actuarial Data Master files (.txt) to .rds, memory-efficiently
+#' Download and process USDA RMA Actuarial Data Master (ADM) files
 #'
-#' Downloads ADM files for the specified years, extracts them,
-#' converts each `.txt` to `.rds` using `data.table::fread()` (character columns by default)
-#' for lower memory overhead, cleans via `clean_data()`, and optionally
-#' removes helper files and source archives.
+#' Downloads ADM data files for the specified years from the USDA RMA actuarial data master repository,
+#' extracts them, converts each `.txt` file to a memory-efficient `.rds` format using `data.table::fread()`,
+#' and processes the data in chunks to minimize RAM usage. Helper files can optionally be retained or filtered
+#' based on matching codes. Source archives can also be deleted after extraction.
 #'
-#' @param years Integer vector. Years to download (e.g., `c(2012, 2013)`).
-#' @param adm_url Character. Base URL for the ADM repository.
-#' @param dir Character. Output directory for download and processing.
-#' @param helpers_only Logical. If `TRUE`, deletes `.txt` files larger than `helpers_size_threshold` (in MB).
-#' @param helpers_size_threshold Numeric. Size threshold (in MB) for helper file removal.
+#' @param years Integer vector. The years of ADM data to download (e.g., `c(2012, 2013)`).
+#' @param adm_url Character. Base URL for the ADM repository. Defaults to the public USDA RMA FTP URL.
+#' @param dir Character. Local directory where files will be downloaded and processed. Created if it does not exist.
+#' @param helpers_only Logical. If `TRUE`, deletes `.txt` files not matching `helper_codes` to conserve space.
+#' @param helper_codes Character vector. File name patterns to retain when `helpers_only = TRUE`.
 #' @param keep_source_files Logical. If `FALSE`, removes downloaded `.zip` archives after extraction.
-#' @return Invisibly returns `NULL`. Processed `.rds` files are written to disk.
-#' @export
+#' @param overwrite Logical. If `TRUE`, re-downloads and re-processes files even if the existing data appears up to date.
+#'
+#' @return Invisibly returns `NULL`. Processed `.rds` files are written to disk in the specified directory.
+#'
+#' @details
+#' The function reads each `.txt` file in chunks (default 1 million rows at a time),
+#' applies a `clean_data()` function to each chunk (assumed to be defined elsewhere),
+#' and writes the results to compressed `.rds` files using `xz` compression.
+#' Files are only re-downloaded if the remote data is newer than the latest local file,
+#' unless `overwrite = TRUE`.
+#'
+#' @note Files are read using `data.table::fread()` with all columns as character to reduce type inference overhead.
+#' Chunked processing is used to reduce peak memory usage during conversion.
+#'
 #' @importFrom data.table fread rbindlist
 #' @importFrom cli cli_alert_info cli_progress_bar cli_progress_update cli_progress_done
 #' @importFrom utils download.file unzip
+#' @export
 download_adm2 <- function(
     years = 2012,
     adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
     dir = "./data-raw",
     helpers_only = TRUE,
-    helpers_size_threshold = 5,
-    keep_source_files = FALSE
+    helper_codes = c("A01090","A00070"),
+    keep_source_files = FALSE,
+    overwrite = FALSE
 ) {
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
@@ -289,7 +303,7 @@ download_adm2 <- function(
     urls <- locate_download_link(year = year, adm_url = adm_url)
 
     # skip if already up to date
-    if (!is.null(last_modified) && urls$update_date < last_modified) {
+    if (!is.null(last_modified) && urls$update_date < last_modified && !overwrite) {
       cli::cli_alert_info("Data for {year} is up to date; skipping.")
       next
     }
@@ -313,11 +327,10 @@ download_adm2 <- function(
 
     # remove large helpers if requested
     if (helpers_only && length(txt_files)) {
-      sizes <- file.info(txt_files)$size
-      to_del <- txt_files[sizes > (1024^2) * helpers_size_threshold]
+      #sizes <- file.info(txt_files)$size
+      to_del <- txt_files[!grepl(paste(helper_codes, collapse = "|"), txt_files)]
       if (length(to_del)) {
         file.remove(to_del)
-        cli::cli_alert_info("Deleted %d helper files > %s MB", length(to_del), helpers_size_threshold)
       }
       txt_files <- setdiff(txt_files, to_del)
     }
@@ -541,7 +554,7 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' corresponding documentation entries in `./R/helper_data.R`.
 #'
 #' @param years A numeric vector of years used to filter the input `.rds` files by year in their file paths.
-#' @param size_threshold any files below the size_threshold (in mb) are assumed to be helper data sets and kept. Applied to the maximum file size across all years.
+#' @param helper_codes A vector of ADM codes to identify the relevant helpers (ex: c("A01090","A00070")). If NULL, defaults to using all files in the year directory.
 #' @param dir A character string specifying the directory containing the raw `.rds` files.
 #'   Defaults to \code{"./data-raw"}.
 #'
@@ -563,7 +576,7 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' @examples \dontrun{
 #' build_helper_datasets(years = 2020:2022)
 #' }
-build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 ){
+build_helper_datasets <- function(years,dir = "./data-raw",  helper_codes = c("A01090","A00070") ){
 
   # id "./data" doesn't exist, create it
   if(!dir.exists("./data")) {
@@ -588,15 +601,11 @@ build_helper_datasets <- function(years,dir = "./data-raw", size_threshold = 1 )
   # extract the actuarial code from each file path (e.x. A00010)
   file_info$adm_code <- substr(basename(file_info$file_path),6,11)
 
-  # keep only files that are less than the size threshold (in MB). Applied to
-  # maximum size over all years
-  max_sizes <- file_info %>%
-    group_by(.data$adm_code) %>%
-    summarize(max_size = max(.data$size_mb)) %>%
-    filter(.data$max_size < size_threshold)
-
-  file_info <- file_info %>%
-    filter(.data$adm_code %in% max_sizes$adm_code)
+  # keep only files that are in the helper codes
+  if(!is.null(helper_codes)){
+    file_info <- file_info %>%
+      filter(.data$adm_code %in% helper_codes)
+  }
 
   # if "./R/data.R" already exists, rename the file name with the data appended
   if(file.exists("./R/helper_data.R")){

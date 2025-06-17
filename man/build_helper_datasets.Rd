@@ -4,7 +4,11 @@
 \alias{build_helper_datasets}
 \title{Build Helper Datasets from Raw RDS Files}
 \usage{
-build_helper_datasets(years, dir = "./data-raw", size_threshold = 1)
+build_helper_datasets(
+  years,
+  dir = "./data-raw",
+  helper_codes = c("A01090", "A00070")
+)
 }
 \arguments{
 \item{years}{A numeric vector of years used to filter the input \code{.rds} files by year in their file paths.}
@@ -12,7 +16,7 @@ build_helper_datasets(years, dir = "./data-raw", size_threshold = 1)
 \item{dir}{A character string specifying the directory containing the raw \code{.rds} files.
 Defaults to \code{"./data-raw"}.}
 
-\item{size_threshold}{any files below the size_threshold (in mb) are assumed to be helper data sets and kept. Applied to the maximum file size across all years.}
+\item{helper_codes}{A vector of ADM codes to identify the relevant helpers (ex: c("A01090","A00070")). If NULL, defaults to using all files in the year directory.}
 }
 \value{
 No return value.
