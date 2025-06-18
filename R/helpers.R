@@ -1,17 +1,286 @@
+#' @title Download a data file from GitHub Releases via piggyback
+#' @param name   The basename of the .rds file, e.g. "foo.rds"
+#' @param tag    Which release tag to download from (default: latest)
+#' @return       The local path to the downloaded file
+#' @keywords internal
+#' @noRd
+#' @import piggyback
+get_cached_rds <- function(name,
+                           repo = "dylan-turner25/rmaADM",
+                           tag  = NULL) {
+  dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
+  if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
+
+  dest_file <- file.path(dest_dir, name)
+  if (!file.exists(dest_file)) {
+    # download from the Release
+    piggyback::pb_download(
+      file     = name,
+      repo     = repo,
+      tag      = tag,
+      dest = dest_dir
+    )
+  }
+  readRDS(dest_file)
+}
+
+#' Clear the package cache of downloaded RDS files
+#'
+#' Deletes the entire cache directory used by the **rmaADM** package to store
+#' downloaded \*.rds files. Useful if you need to force re-download of data,
+#' or free up disk space.
+#'
+#' @return Invisibly returns `NULL`. A message is printed indicating which
+#'   directory was cleared.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Remove all cached RDS files so they will be re-downloaded on next use
+#' clear_rmaADM_cache()
+#' }
+clear_rmaADM_cache <- function(){
+  dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
+  if (dir.exists(dest_dir)) {
+    unlink(dest_dir, recursive = TRUE, force = TRUE)
+  }
+  message("Cleared cached files in ", dest_dir)
+  invisible(NULL)
+}
+
+
+#' List asset names from the latest GitHub release
+#'
+#' Retrieves the metadata for the most recent release of the **rmaADM** repository
+#' on GitHub and extracts the names of all attached release assets.
+#'
+#' @return A character vector of file names (assets) in the latest release.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' files = list_data_assets()
+#' }
+#' @importFrom gh gh
+list_data_assets <- function(){
+  # 1. Fetch the release metadata (by tag, or "latest")
+  release <- gh::gh(
+    "/repos/{owner}/{repo}/releases/latest",
+    owner = "dylan-turner25",
+    repo  = "rmaADM"
+  )
+
+  # 2. Extract the assets list
+  assets <- release$assets
+
+  # 3. Pull out the bits you care about
+  df <- data.frame(
+    name = vapply(assets, `[[`, "", "name"),
+    url  = vapply(assets, `[[`, "", "browser_download_url"),
+    size = vapply(assets, `[[`, 0,  "size"),
+    stringsAsFactors = FALSE
+  )
+
+  return(df$name)
+}
+
+#' Compress ADM files by maintaining only the necessary level of granularity
+#'
+#' @param table_code An adm record code to identify the target record.
+#' @param df a data frame corresponding to the data represented by the table_code
+#' @param dir Path to where downloaded adm files are stored.
+#' @return A data frame of aggregated parameter values.
+#' @import data.table
+#' @importFrom readr read_delim
+#' @export
+compress_adm <- function(table_code, df, dir) {
+
+
+  # Define constants used by the function
+  FCIP_INSURANCE_POOL <- c(
+    "state_code",
+    "county_code",
+    "commodity_code",
+    "type_code",
+    "practice_code"
+  )
+
+  FCIP_INSURANCE_ELECTION <- c(
+    "unit_structure_code",
+    "insurance_plan_code",
+    "coverage_type_code",
+    "coverage_level_percent"
+  )
+
+  FCIP_FORCE_NUMERIC_KEYS <- c(
+    "commodity_year",
+    FCIP_INSURANCE_POOL,
+    "record_category_code",
+    "insurance_plan_code",
+    "coverage_level_percent"
+  )
+
+  ## Determine parameter list and aggregation keys
+
+  # Base Rate
+  if (table_code == "A01010") {
+    parameter_list <- c(
+      "reference_amount", "reference_rate", "exponent_value",
+      "fixed_rate", "prior_year_reference_amount", "prior_year_reference_rate",
+      "prior_year_exponent_value", "prior_year_fixed_rate",
+      "base_rate", "prior_year_base_rate"
+    )
+    aggregation_point <- FCIP_INSURANCE_POOL
+  }
+
+  # Coverage Level Differential
+  if (table_code == "A01040") {
+    parameter_list <- c(
+      "rate_differential_factor", "unit_residual_factor",
+      "enterprise_unit_residual_factor", "whole_farm_unit_residual_factor",
+      "prior_year_rate_differential_factor", "prior_year_unit_residual_factor",
+      "prior_year_enterprise_unit_residual_factor", "prior_year_whole_farm_unit_residual_factor",
+      "cat_residual_factor", "prior_cat_residual_factor"
+    )
+    aggregation_point <- c(FCIP_INSURANCE_POOL, FCIP_INSURANCE_ELECTION[!FCIP_INSURANCE_ELECTION %in% "unit_structure_code"])
+  }
+
+  # Beta ID
+  if (table_code == "A00030") {
+    parameter_list <- "beta_id"
+    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code", "unit_structure_code")
+  }
+
+  # Combo Revenue Factor
+  if (table_code == "A01030") {
+    parameter_list <- c("mean_quantity", "standard_deviation_quantity")
+    aggregation_point <- c("commodity_code", "state_code", "lookup_rate")
+  }
+
+  # Historical Revenue Capping
+  if (table_code == "A01110") {
+    parameter_list <- c(
+      "capping_reference_yield", "capping_reference_rate", "capping_exponent_value", "capping_fixed_rate",
+      "prior_capping_reference_yield", "prior_capping_reference_rate", "prior_capping_exponent_value", "prior_capping_fixed_rate",
+      paste0("beta_", 0:14, "_factor")
+    )
+    aggregation_point <- c(FCIP_INSURANCE_POOL, "capping_year")
+  }
+
+  # Premium Subsidy Percent
+  if (table_code == "A00070") {
+    parameter_list <- c("subsidy_percent")
+    aggregation_point <- FCIP_INSURANCE_ELECTION
+  }
+
+  # Price
+  if (table_code == "A00810") {
+    parameter_list <- c("established_price", "projected_price", "harvest_price")
+    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
+  }
+
+  # Price Volatility Factor
+  # if (table_code == "A00810_PVF") {
+  #   parameter_list <- c("price_volatility_factor")
+  #   aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
+  # }
+
+  ## Read RDS and coerce to numeric
+  setDT(df)
+
+  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
+    .SD, function(x) as.numeric(as.character(x))
+  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
+
+  ## Filter on reference/record codes if present
+
+  # Keep where reference_amount_code is available and equals "Y" (Yield)
+  if ("reference_amount_code" %in% names(df) && length(unique(df$reference_amount_code)) > 1) {
+    df <- df[reference_amount_code == "Y"]
+  }
+
+  # Keep where record_category_code is available and equals 1 (Base Rate)
+  if ("record_category_code" %in% names(df) && length(unique(df$record_category_code)) > 1) {
+    df <- df[record_category_code == 1]
+  }
+
+  ## Special-case reshaping
+
+  if (table_code == "A00030") {
+    # Define unit structure flags
+    flags <- names(df)[grepl("_unit_", names(df)) & grepl("_allowed_flag", names(df))]
+    keepers <- intersect(c(aggregation_point, parameter_list), names(df))
+
+    # Filter out NA beta_id, select only keepers+flags, then unique
+    df <- unique(df[!is.na(beta_id), c(keepers, flags), with = FALSE])
+
+    # Melt to long, keep only the "Y" rows
+    df <- melt(
+      df,
+      id.vars = keepers,
+      measure.vars = flags,
+      variable.name = "nme",
+      value.name = "unit_structure_code"
+    )[unit_structure_code == "Y"]
+
+    # Map flag-names to two-letter codes
+    code_map <- c(
+      optional_unit_allowed_flag = "OU",
+      basic_unit_allowed_flag = "BU",
+      enterprise_unit_allowed_flag = "EU",
+      whole_farm_unit_allowed_flag = "WU",
+      enterprise_unit_by_practice_allowed_flag = "EU"
+    )
+
+    df[, unit_structure_code := code_map[nme]]
+    df[, nme := NULL]  # Drop the helper column
+  }
+
+  if (table_code == "A01030") {
+    df <- df[, lookup_rate := base_rate
+    ][, unique(.SD), .SDcols = intersect(
+      c("commodity_year", aggregation_point, parameter_list), names(df)
+    )]
+  }
+
+  if (table_code == "A01110") {
+    df <- df[, unique(.SD), .SDcols = intersect(
+      c("commodity_year", aggregation_point, parameter_list), names(df)
+    )]
+  }
+
+  # aggregate if an aggregation point and parameter list are defined
+  if( !is.null(aggregation_point) & !is.null(parameter_list)){
+    # Aggregate parameters by taking the mean
+    df <- df[, lapply(.SD, function(x) mean(x, na.rm = TRUE)),
+             by = c(names(df)[names(df) %in% c("commodity_year",
+                                               aggregation_point,
+                                               "insurance_plan_recode",
+                                               "unit_structure_recode")]),
+             .SDcols = parameter_list]
+  }
+
+  return(df)
+}
+
 
 #' Locate the download link for the actuarial data master
 #'
 #' @param year the year of the actuarial data master to download
-#' @param adm_url the url where the adm FTP site is
+#' @param adm_url the url where the ADM FTP site is
+#' @param ice_url the url where the ICE (insurance control elements) FTP site is
+#' @param data_source either "adm" or "ice". Defaults to "adm".
+
 #'
 #' @returns a list of the data and layout file urls with the time the file was last updated on RMA's server
 #'
 #' @importFrom stringr str_match_all str_extract
-#' @import dplyr
+#' @importFrom dplyr mutate filter
 #'
 #' @examples \dontrun{locate_download_link(year = 2012)}
 locate_download_link <- function(year = 2012,
-                                 adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/"){
+                                 adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
+                                 ice_url = "https://pubfs-rma.fpac.usda.gov/pub/References/insurance_control_elements/PASS/",
+                                 data_source = c("adm","ice")){
 
   # read in the webpage
   html <- suppressWarnings(paste0(readLines(adm_url), collapse = "\n"))
@@ -22,6 +291,8 @@ locate_download_link <- function(year = 2012,
 
   # get the link with the matching year
   link <- links[grepl(year,links)]
+  link <- link[!grepl("test",link)] # for ICE links
+
 
   # apply some cleaning opperations
   link <- gsub("href=\"", "", link)
@@ -250,8 +521,7 @@ download_adm <- function(years = 2012,
 #' @param years Integer vector. The years of ADM data to download (e.g., `c(2012, 2013)`).
 #' @param adm_url Character. Base URL for the ADM repository. Defaults to the public USDA RMA FTP URL.
 #' @param dir Character. Local directory where files will be downloaded and processed. Created if it does not exist.
-#' @param helpers_only Logical. If `TRUE`, deletes `.txt` files not matching `helper_codes` to conserve space.
-#' @param helper_codes Character vector. File name patterns to retain when `helpers_only = TRUE`.
+#' @param dataset_codes Character vector. File name patterns to retain, if null, keeps all files.
 #' @param keep_source_files Logical. If `FALSE`, removes downloaded `.zip` archives after extraction.
 #' @param overwrite Logical. If `TRUE`, re-downloads and re-processes files even if the existing data appears up to date.
 #'
@@ -275,10 +545,10 @@ download_adm2 <- function(
     years = 2012,
     adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
     dir = "./data-raw",
-    helpers_only = TRUE,
-    helper_codes = c("A01090","A00070"),
+    dataset_codes = c("A01090","A00070"),
     keep_source_files = FALSE,
-    overwrite = FALSE
+    overwrite = FALSE,
+    compress = TRUE
 ) {
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
@@ -326,9 +596,9 @@ download_adm2 <- function(
     txt_files <- list.files(year_dir, pattern = "\\.txt$", full.names = TRUE)
 
     # remove large helpers if requested
-    if (helpers_only && length(txt_files)) {
+    if (!is.null(dataset_codes) && length(txt_files)) {
       #sizes <- file.info(txt_files)$size
-      to_del <- txt_files[!grepl(paste(helper_codes, collapse = "|"), txt_files)]
+      to_del <- txt_files[!grepl(paste(dataset_codes, collapse = "|"), txt_files)]
       if (length(to_del)) {
         file.remove(to_del)
       }
@@ -380,7 +650,10 @@ download_adm2 <- function(
           colnames(dt) <- dt_names
         }
 
-
+        # apply compression
+        if(compress){
+          dt = compress_adm(table_code = substr(basename(f),6,11), df = dt)
+        }
 
         # Save/append to RDS
         if (first_chunk) {
@@ -571,7 +844,7 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 #' Each resulting dataset will be available for use with \code{data()} if the package is rebuilt.
 #'
 #' @return No return value.
-#' @import dplyr
+#' @importFrom dplyr filter mutate bind_rows .data
 #' @importFrom purrr map
 #' @examples \dontrun{
 #' build_helper_datasets(years = 2020:2022)
@@ -622,7 +895,6 @@ build_helper_datasets <- function(years,dir = "./data-raw",  helper_codes = c("A
   # and save them as a .rds file with the name of the file_name
   for(f in unique(file_info$adm_code)){
 
-
     # get the file paths for the current file name
     file_paths <- file_info[file_info$adm_code == f, "file_path"]
 
@@ -637,7 +909,6 @@ build_helper_datasets <- function(years,dir = "./data-raw",  helper_codes = c("A
 
     # convert the columns back to their most approriate data type
     data <- suppressMessages(readr::type_convert(data))
-
 
     # Remove both prefix and suffix to get file name to export
     file_out <- unique(gsub("^\\d{4}_[A-Za-z]\\d{5}_|_YTD|\\.rds", "",

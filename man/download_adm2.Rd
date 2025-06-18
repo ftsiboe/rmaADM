@@ -8,10 +8,10 @@ download_adm2(
   years = 2012,
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
   dir = "./data-raw",
-  helpers_only = TRUE,
-  helper_codes = c("A01090", "A00070"),
+  dataset_codes = c("A01090", "A00070"),
   keep_source_files = FALSE,
-  overwrite = FALSE
+  overwrite = FALSE,
+  compress = TRUE
 )
 }
 \arguments{
@@ -21,9 +21,7 @@ download_adm2(
 
 \item{dir}{Character. Local directory where files will be downloaded and processed. Created if it does not exist.}
 
-\item{helpers_only}{Logical. If \code{TRUE}, deletes \code{.txt} files not matching \code{helper_codes} to conserve space.}
-
-\item{helper_codes}{Character vector. File name patterns to retain when \code{helpers_only = TRUE}.}
+\item{dataset_codes}{Character vector. File name patterns to retain, if null, keeps all files.}
 
 \item{keep_source_files}{Logical. If \code{FALSE}, removes downloaded \code{.zip} archives after extraction.}
 

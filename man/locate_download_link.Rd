@@ -6,13 +6,20 @@
 \usage{
 locate_download_link(
   year = 2012,
-  adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/"
+  adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
+  ice_url =
+    "https://pubfs-rma.fpac.usda.gov/pub/References/insurance_control_elements/PASS/",
+  data_source = c("adm", "ice")
 )
 }
 \arguments{
 \item{year}{the year of the actuarial data master to download}
 
-\item{adm_url}{the url where the adm FTP site is}
+\item{adm_url}{the url where the ADM FTP site is}
+
+\item{ice_url}{the url where the ICE (insurance control elements) FTP site is}
+
+\item{data_source}{either "adm" or "ice". Defaults to "adm".}
 }
 \value{
 a list of the data and layout file urls with the time the file was last updated on RMA's server

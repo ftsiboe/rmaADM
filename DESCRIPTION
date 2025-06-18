@@ -16,7 +16,9 @@ Imports:
   readr,
   janitor,
   purrr,
-  data.table
+  data.table,
+  gh,
+  piggyback
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
