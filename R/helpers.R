@@ -511,6 +511,76 @@ download_adm <- function(years = 2012,
 }
 
 
+#' Check file availability and determine download/conversion strategy
+#'
+#' @param year_dir Character. Directory path for the specific year
+#' @param dataset_codes Character vector. Dataset codes to check for
+#' @param update_date POSIXct. Remote update date to compare against
+#' @param overwrite Logical. Whether to force overwrite
+#'
+#' @return List with elements: skip_download (logical), convert_txt_to_rds (logical), rds_to_delete (character vector)
+#' @keywords internal
+check_file_status <- function(year_dir, dataset_codes, update_date, overwrite = FALSE) {
+  skip_download <- FALSE
+  convert_txt_to_rds <- FALSE  
+  rds_to_delete <- character(0)
+  
+  if (!overwrite && !is.null(dataset_codes)) {
+    # Get all RDS and TXT files
+    rds_files <- list.files(year_dir, pattern = "\\.rds$", full.names = TRUE)
+    txt_files <- list.files(year_dir, pattern = "\\.txt$", full.names = TRUE)
+    
+    # Check which codes are represented by RDS and TXT files
+    rds_codes_present <- sapply(dataset_codes, function(code) {
+      any(grepl(code, rds_files))
+    })
+    
+    txt_codes_present <- sapply(dataset_codes, function(code) {
+      any(grepl(code, txt_files))
+    })
+    
+    # Check if all dataset codes are represented by either RDS or TXT files
+    all_codes_represented <- all(rds_codes_present | txt_codes_present)
+    
+    if (all_codes_represented) {
+      # Check last modified date of all relevant files
+      relevant_files <- c()
+      if (length(rds_files) > 0) relevant_files <- c(relevant_files, rds_files)
+      if (length(txt_files) > 0) relevant_files <- c(relevant_files, txt_files)
+      
+      if (length(relevant_files) > 0) {
+        most_recent <- relevant_files[which.max(file.info(relevant_files)$mtime)]
+        last_modified <- file.info(most_recent)$mtime
+        
+        if (update_date < last_modified) {
+          skip_download <- TRUE
+          
+          # Identify RDS files to delete (where both RDS and TXT exist for same code)
+          for (i in seq_along(dataset_codes)) {
+            code <- dataset_codes[i]
+            if (rds_codes_present[i] && txt_codes_present[i]) {
+              # Both exist, mark RDS for deletion
+              rds_to_delete <- c(rds_to_delete, rds_files[grepl(code, rds_files)])
+            }
+          }
+          
+          # Check if any codes need TXT to RDS conversion
+          if (any(txt_codes_present)) {
+            convert_txt_to_rds <- TRUE
+          }
+        }
+      }
+    }
+  }
+  
+  return(list(
+    skip_download = skip_download, 
+    convert_txt_to_rds = convert_txt_to_rds,
+    rds_to_delete = rds_to_delete
+  ))
+}
+
+
 #' Download and process USDA RMA Actuarial Data Master (ADM) files
 #'
 #' Downloads ADM data files for the specified years from the USDA RMA actuarial data master repository,
@@ -560,23 +630,28 @@ download_adm2 <- function(
       dir.create(year_dir)
     }
 
-    # determine the most recent modification time of any file in year_dir
-    existing_files <- list.files(year_dir, full.names = TRUE)
-    if (length(existing_files) == 0) {
-      last_modified <- NULL
-    } else {
-      most_recent <- existing_files[which.max(file.info(existing_files)$mtime)]
-      last_modified <- file.info(most_recent)$mtime
-    }
-
     # locate download URLs
     urls <- locate_download_link(year = year, adm_url = adm_url)
 
-    # skip if already up to date
-    if (!is.null(last_modified) && urls$update_date < last_modified && !overwrite) {
-      cli::cli_alert_info("Data for {year} is up to date; skipping.")
-      next
+    # check file status and determine strategy
+    file_status <- check_file_status(year_dir, dataset_codes, urls$update_date, overwrite)
+    
+    if (file_status$skip_download) {
+      # Delete RDS files where both RDS and TXT exist for same code
+      if (length(file_status$rds_to_delete) > 0) {
+        cli::cli_alert_info("Removing duplicate RDS files for {year}.")
+        file.remove(file_status$rds_to_delete)
+      }
+      
+      if (file_status$convert_txt_to_rds) {
+        cli::cli_alert_info("Converting TXT files to RDS for {year}.")
+      } else {
+        cli::cli_alert_info("Data for {year} is up to date; skipping.")
+        next
+      }
     }
+    
+    if (!file_status$skip_download) {
 
     # download & unzip data
     data_zip <- file.path(year_dir, sprintf("adm_ytd_%s.zip", year))
@@ -590,6 +665,7 @@ download_adm2 <- function(
       utils::download.file(urls$layout, layout_zip, mode = "wb")
       utils::unzip(layout_zip, exdir = year_dir)
       if (!keep_source_files) file.remove(layout_zip)
+    }
     }
 
     # list .txt files
@@ -608,74 +684,72 @@ download_adm2 <- function(
     # convert each .txt to .rds
     for (f in txt_files) {
 
-      # Set chunk size for reading large files
-      chunk_size <- 1000000  # Adjust based on your memory constraints
-
-      # Get total number of rows to determine chunks
-      total_rows <- data.table::fread(
-        input = f,
-        sep = "|",
-        select = 1L,
-        showProgress = FALSE
-      ) |> nrow()
-
-      # Initialize variables
+      chunk_size <- 1000000
       out_rds <- sub("\\.txt$", ".rds", f)
-      first_chunk <- TRUE
-      total_chunks <- ceiling(total_rows / chunk_size)
-
-
-
-      # Read and process in chunks
-      for (i in seq_len(total_chunks)) {
-        start_row <- (i - 1) * chunk_size + 1
-        end_row <- min(i * chunk_size, total_rows)
-
-        # Read chunk
+      temp_dir <- file.path(dirname(out_rds), "temp_chunks")
+      dir.create(temp_dir, showWarnings = FALSE)
+      
+      chunk_count <- 0
+      dt_names <- NULL
+      
+      # Process in chunks, saving each to temporary RDS
+      repeat {
         dt <- data.table::fread(
           input = f,
           sep = "|",
           colClasses = "character",
           showProgress = FALSE,
-          skip = start_row - 1,
-          nrows = end_row - start_row + 1
+          skip = chunk_count * chunk_size,
+          nrows = chunk_size
         )
-
-        # Clean chunk
+        
+        if (nrow(dt) == 0) break
+        
+        chunk_count <- chunk_count + 1
         dt <- clean_data(dt)
-
-        if(i == 1){
-          dt_names = names(dt)
+        
+        if (is.null(dt_names)) {
+          dt_names <- names(dt)
         } else {
           colnames(dt) <- dt_names
         }
-
-        # apply compression
-        if(compress){
-          dt = compress_adm(table_code = substr(basename(f),6,11), df = dt)
+        
+        if (compress) {
+          dt <- compress_adm(table_code = substr(basename(f), 6, 11), df = dt)
         }
-
-        # Save/append to RDS
-        if (first_chunk) {
-          saveRDS(dt, out_rds, compress = "xz")
-          first_chunk <- FALSE
-        } else {
-          # Read existing data, combine with new chunk, and save
-          existing_dt <- readRDS(out_rds)
-          combined_dt <- rbind(existing_dt, dt)
-          saveRDS(combined_dt, out_rds, compress = "xz")
-          rm(existing_dt, combined_dt)
-        }
-
-
-        # Cleanup chunk
+        
+        # Save chunk to temporary file
+        temp_file <- file.path(temp_dir, paste0("chunk_", chunk_count, ".rds"))
+        saveRDS(dt, temp_file, compress = "xz")
         rm(dt)
-        gc()
+        gc() # Force garbage collection after each chunk
       }
-
-
-      # Final cleanup
+      
+      # Combine chunks using streaming approach (read one at a time)
+      if (chunk_count > 0) {
+        temp_files <- file.path(temp_dir, paste0("chunk_", seq_len(chunk_count), ".rds"))
+        
+        # Initialize with first chunk
+        final_dt <- readRDS(temp_files[1])
+        file.remove(temp_files[1])
+        
+        # Stream remaining chunks
+        for (i in 2:length(temp_files)) {
+          chunk_dt <- readRDS(temp_files[i])
+          final_dt <- rbind(final_dt, chunk_dt)
+          rm(chunk_dt)
+          file.remove(temp_files[i])
+          gc()
+        }
+        
+        saveRDS(final_dt, out_rds, compress = "xz")
+        rm(final_dt)
+      }
+      
+      # Cleanup
+      unlink(temp_dir, recursive = TRUE)
       file.remove(f)
+      gc()
 
     }
   }

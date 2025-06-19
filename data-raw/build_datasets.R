@@ -7,7 +7,7 @@ devtools::load_all()
 
 # download the ADM files to data-raw
 download_adm2(
-  years = 2011:2012,
+  years = 2011:2025,
   dataset_codes = c("A01010","A01040","A00030","A01030","A01110","A00070","A00810"),
   compress = TRUE
 )
