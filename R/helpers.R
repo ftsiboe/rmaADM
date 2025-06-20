@@ -410,7 +410,7 @@ locate_download_link <- function(year = 2012,
 
   # add the base url and year to the file names
   file_info <- file_info %>%
-    mutate(filename = paste0(adm_url,year,"/",filename))
+    mutate(filename = paste0(url,year,"/",filename))
 
   # convert the links to a list and name them
   links <- as.list(file_info$filename)
