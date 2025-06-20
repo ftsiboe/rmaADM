@@ -7,6 +7,7 @@ test_that("compress_adm handles Price table (A00810)", {
     established_price = 5.50,
     projected_price = 6.00,
     harvest_price = 5.75,
+    price_volatility_factor = 0.12,
     stringsAsFactors = FALSE
   )
   
@@ -14,7 +15,7 @@ test_that("compress_adm handles Price table (A00810)", {
   
   expect_true(is.data.frame(result))
   expect_gt(nrow(result), 0)
-  expect_true(all(c("established_price", "projected_price", "harvest_price") %in% names(result)))
+  expect_true(all(c("established_price", "projected_price", "harvest_price", "price_volatility_factor") %in% names(result)))
 })
 
 test_that("compress_adm handles Subsidy table (A00070)", {

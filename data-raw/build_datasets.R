@@ -15,7 +15,7 @@ download_adm2(
                     "A01030",
                     "A01110",
                     "A00070",
-                    "A00810",
+                    "A00810", # price
                     "A00200",
                     "A01115" # historical yield trend
                     ),

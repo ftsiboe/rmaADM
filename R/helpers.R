@@ -40,7 +40,11 @@ locate_data_asset <- function(year, dataset){
   all_files <- list_data_assets()
 
   # filter on year
-  files <- all_files[grepl(paste0(year, collapse = "|"), all_files)]
+  if(!is.null(year)){
+    files <- all_files[grepl(paste0(year, collapse = "|"), all_files)]
+  } else {
+    files = all_files
+  }
 
   # filter on dataset
   files <- files[grepl(dataset, tolower(gsub("_", "", files)))]
@@ -213,7 +217,7 @@ compress_adm <- function(table_code, df, dir) {
 
   # Price
   if (table_code == "A00810") {
-    parameter_list <- c("established_price", "projected_price", "harvest_price")
+    parameter_list <- c("established_price", "projected_price", "harvest_price","price_volatility_factor")
     aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
   }
 
@@ -733,14 +737,16 @@ download_adm2 <- function(
       #sizes <- file.info(txt_files)$size
       to_del <- txt_files[!grepl(paste(dataset_codes, collapse = "|"), txt_files)]
 
-      # Also remove txt files that already have corresponding rds files
-      rds_files <- list.files(year_dir, pattern = "\\.rds$", full.names = TRUE)
-      if (length(rds_files) > 0) {
-        for (code in dataset_codes) {
-          if (any(grepl(code, rds_files))) {
-            # RDS file exists for this code, remove corresponding TXT files
-            txt_with_rds <- txt_files[grepl(code, txt_files)]
-            to_del <- c(to_del, txt_with_rds)
+      # Also remove txt files that already have corresponding rds files (unless overwriting)
+      if (!overwrite) {
+        rds_files <- list.files(year_dir, pattern = "\\.rds$", full.names = TRUE)
+        if (length(rds_files) > 0) {
+          for (code in dataset_codes) {
+            if (any(grepl(code, rds_files))) {
+              # RDS file exists for this code, remove corresponding TXT files
+              txt_with_rds <- txt_files[grepl(code, txt_files)]
+              to_del <- c(to_del, txt_with_rds)
+            }
           }
         }
       }

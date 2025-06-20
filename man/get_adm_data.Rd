@@ -4,7 +4,7 @@
 \alias{get_adm_data}
 \title{Get USDA RMA Actuarial Data Master (ADM) data}
 \usage{
-get_adm_data(year = 2012, dataset = "baserate")
+get_adm_data(year = NULL, dataset = "baserate")
 }
 \arguments{
 \item{year}{Numeric. The year of ADM data to retrieve. Defaults to 2012.}

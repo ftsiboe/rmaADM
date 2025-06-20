@@ -38,7 +38,7 @@
 #' \code{\link{list_data_assets}} for listing all available data assets
 #'
 #' @export
-get_adm_data <- function(year = 2012, dataset = "baserate"){
+get_adm_data <- function(year = NULL, dataset = "baserate"){
 
   # get list of all assets
   file  <- locate_data_asset(year, dataset)
