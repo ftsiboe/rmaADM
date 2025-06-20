@@ -9,7 +9,7 @@ locate_download_link(
   adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
   ice_url =
     "https://pubfs-rma.fpac.usda.gov/pub/References/insurance_control_elements/PASS/",
-  data_source = c("adm", "ice")
+  data_source = "adm"
 )
 }
 \arguments{

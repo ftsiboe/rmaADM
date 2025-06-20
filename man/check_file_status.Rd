@@ -4,14 +4,12 @@
 \alias{check_file_status}
 \title{Check file availability and determine download/conversion strategy}
 \usage{
-check_file_status(year_dir, dataset_codes, update_date, overwrite = FALSE)
+check_file_status(year_dir, dataset_codes, overwrite = FALSE)
 }
 \arguments{
 \item{year_dir}{Character. Directory path for the specific year}
 
 \item{dataset_codes}{Character vector. Dataset codes to check for}
-
-\item{update_date}{POSIXct. Remote update date to compare against}
 
 \item{overwrite}{Logical. Whether to force overwrite}
 }

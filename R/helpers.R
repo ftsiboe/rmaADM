@@ -159,29 +159,7 @@ list_data_assets <- function(){
 compress_adm <- function(table_code, df, dir) {
 
 
-  # Define constants used by the function
-  FCIP_INSURANCE_POOL <- c(
-    "state_code",
-    "county_code",
-    "commodity_code",
-    "type_code",
-    "practice_code"
-  )
 
-  FCIP_INSURANCE_ELECTION <- c(
-    "unit_structure_code",
-    "insurance_plan_code",
-    "coverage_type_code",
-    "coverage_level_percent"
-  )
-
-  FCIP_FORCE_NUMERIC_KEYS <- c(
-    "commodity_year",
-    FCIP_INSURANCE_POOL,
-    "record_category_code",
-    "insurance_plan_code",
-    "coverage_level_percent"
-  )
 
   ## Determine parameter list and aggregation keys
   aggregation_point <- NULL
@@ -347,7 +325,7 @@ compress_adm <- function(table_code, df, dir) {
 locate_download_link <- function(year = 2012,
                                  adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
                                  ice_url = "https://pubfs-rma.fpac.usda.gov/pub/References/insurance_control_elements/PASS/",
-                                 data_source = c("adm","ice")){
+                                 data_source = "adm"){
 
   if(data_source == "ice"){
     url <- ice_url
@@ -590,12 +568,11 @@ download_adm <- function(years = 2012,
 #'
 #' @param year_dir Character. Directory path for the specific year
 #' @param dataset_codes Character vector. Dataset codes to check for
-#' @param update_date POSIXct. Remote update date to compare against
 #' @param overwrite Logical. Whether to force overwrite
 #'
 #' @return List with elements: skip_download (logical), convert_txt_to_rds (logical), rds_to_delete (character vector)
 #' @keywords internal
-check_file_status <- function(year_dir, dataset_codes, update_date, overwrite = FALSE) {
+check_file_status <- function(year_dir, dataset_codes, overwrite = FALSE) {
   skip_download <- FALSE
   convert_txt_to_rds <- FALSE
   rds_to_delete <- character(0)
@@ -618,32 +595,20 @@ check_file_status <- function(year_dir, dataset_codes, update_date, overwrite = 
     all_codes_represented <- all(rds_codes_present | txt_codes_present)
 
     if (all_codes_represented) {
-      # Check last modified date of all relevant files
-      relevant_files <- c()
-      if (length(rds_files) > 0) relevant_files <- c(relevant_files, rds_files)
-      if (length(txt_files) > 0) relevant_files <- c(relevant_files, txt_files)
+      skip_download <- TRUE
 
-      if (length(relevant_files) > 0) {
-        most_recent <- relevant_files[which.max(file.info(relevant_files)$mtime)]
-        last_modified <- file.info(most_recent)$mtime
-
-        if (update_date < last_modified) {
-          skip_download <- TRUE
-
-          # Identify RDS files to delete (where both RDS and TXT exist for same code)
-          for (i in seq_along(dataset_codes)) {
-            code <- dataset_codes[i]
-            if (rds_codes_present[i] && txt_codes_present[i]) {
-              # Both exist, mark RDS for deletion
-              rds_to_delete <- c(rds_to_delete, rds_files[grepl(code, rds_files)])
-            }
-          }
-
-          # Check if any codes need TXT to RDS conversion
-          if (any(txt_codes_present)) {
-            convert_txt_to_rds <- TRUE
-          }
+      # Identify RDS files to delete (where both RDS and TXT exist for same code)
+      for (i in seq_along(dataset_codes)) {
+        code <- dataset_codes[i]
+        if (rds_codes_present[i] && txt_codes_present[i]) {
+          # Both exist, mark RDS for deletion
+          rds_to_delete <- c(rds_to_delete, rds_files[grepl(code, rds_files)])
         }
+      }
+
+      # Check if any codes need TXT to RDS conversion
+      if (any(txt_codes_present)) {
+        convert_txt_to_rds <- TRUE
       }
     }
   }
@@ -710,7 +675,7 @@ download_adm2 <- function(
     urls <- locate_download_link(year = year, adm_url = adm_url)
 
     # check file status and determine strategy
-    file_status <- check_file_status(year_dir, dataset_codes, urls$update_date, overwrite)
+    file_status <- check_file_status(year_dir, dataset_codes, overwrite)
 
     if (file_status$skip_download) {
       # Delete RDS files where both RDS and TXT exist for same code
@@ -767,6 +732,19 @@ download_adm2 <- function(
     if (!is.null(dataset_codes) && length(txt_files)) {
       #sizes <- file.info(txt_files)$size
       to_del <- txt_files[!grepl(paste(dataset_codes, collapse = "|"), txt_files)]
+
+      # Also remove txt files that already have corresponding rds files
+      rds_files <- list.files(year_dir, pattern = "\\.rds$", full.names = TRUE)
+      if (length(rds_files) > 0) {
+        for (code in dataset_codes) {
+          if (any(grepl(code, rds_files))) {
+            # RDS file exists for this code, remove corresponding TXT files
+            txt_with_rds <- txt_files[grepl(code, txt_files)]
+            to_del <- c(to_del, txt_with_rds)
+          }
+        }
+      }
+
       if (length(to_del)) {
         file.remove(to_del)
       }

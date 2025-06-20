@@ -1,94 +1,144 @@
-#' #'
-#' #' Reads insurance offer and historical yield trend tables from one or more
-#' #' ADM year-to-date ZIP archives, merges them on the historical trend IDs,
-#' #' aggregates by mean within each archive, then across all years selects the
-#' #' earliest available trend per FCIP insurance pool and computes average yields.
-#' #'
-#' #' @param adm_ytd_archive_list [character]
-#' #'   Vector of file paths to ADM YTD ZIP archives. Each archive must contain
-#' #'   the tables `a00030_insurance_offer` and `a01115_historical_yield_trend`.
-#' #'
-#' #' @return
-#' #' A data.table with one row per FCIP insurance pool per year, containing
-#' #' the mean `yield_amount`, `trended_yield_amount`, and
-#' #' `detrended_yield_amount`, along with the corresponding
-#' #' `commodity_year` and `yield_year`.
-#' #'
-#' #' @details
-#' #' - Each year, the RMA rebuilds the historical yield trend table (`a01115`), so
-#' #'   yields may differ across different releases of that table.
-#' #' - This function uses information across all available `a01115` tables to
-#' #'   construct a single, reconciled county yield history.
-#' #' - The `a01115` table is available for crop years 2016 and later.
-#' #'
-#' #' @importFrom data.table rbindlist
-#' #' @importFrom dplyr inner_join
-#' #' @export
-#' #'
-#' #' @examples
-#' #' \dontrun{
-#' #' archives <- c("ADM_2016.zip", "ADM_2017.zip", "ADM_2018.zip")
-#' #' dt_history <- build_county_yield_history(archives)
-#' #' head(dt_history)
-#' #' }
-#' build_county_yield_history <- function(adm_ytd_archive_list){
+# Global variable declarations for R CMD check
+globalVariables(c("age", "age_min", "commodity_year", "historical_yield_trend_id", "yield_year"))
+
+#' Load and join insurance offer and yield trend tables for a year
 #'
-#'   df <- data.table::rbindlist(
-#'     lapply(
-#'       1:length(adm_ytd_archive_list),
-#'       function(i) {
-#'         tryCatch({
-#'           #i <- 1
+#' Loads the insurance offer table and historical yield trend table for a
+#' specific year, filters out missing trend IDs, and joins them on common columns.
 #'
-#'           ofer <- adm_ytd_reader(file_name="a00030_insurance_offer", adm_ytd_archive = adm_ytd_archive_list[[i]])
-#'           ofer <- ofer[!historical_yield_trend_id %in% NA]
-#'           ofer <- unique(ofer[, .SD, .SDcols =
-#'                                 c(intersect(names(ofer),
-#'                                             c("commodity_year",FCIP_INSURANCE_POOL,"historical_yield_trend_id")))])
+#' @param year [numeric] Year to load data for
 #'
-#'           hist <- adm_ytd_reader(file_name="a01115_historical_yield_trend",adm_ytd_archive = adm_ytd_archive_list[[i]])
+#' @return \link[data.table]{data.table} containing joined insurance offer and yield trend data
+load_and_join_tables <- function(year) {
+
+  # load insurance offer data set
+  ofer <- get_adm_data(year = year, dataset = "insuranceoffer")
+  ofer <- ofer[!historical_yield_trend_id %in% NA]
+  ofer <- unique(ofer[, .SD, .SDcols =
+                        c(intersect(names(ofer),
+                                    c("commodity_year",
+                                      FCIP_INSURANCE_POOL,
+                                      "historical_yield_trend_id")))])
+
+  # load historical yield trend data set
+  hist <- get_adm_data(year = year, "historical_yield_trend")
+
+  # join them together
+  hist <- dplyr::inner_join(hist,ofer,by=names(ofer)[names(ofer) %in% names(hist)])
+
+  return(hist)
+}
+
+#' Process data for a single year
 #'
-#'           hist <- dplyr::inner_join(hist,ofer,by=names(ofer)[names(ofer) %in% names(hist)])
-#'           rm(ofer);gc()
+#' Loads and processes insurance offer and yield trend data for a single year,
+#' aggregating yield data by mean within FCIP insurance pools, commodity years, and yield years.
 #'
-#'           # aggregate parameters by taking the mean
-#'           hist <- hist[, lapply(.SD, function(x) mean(x, na.rm = TRUE)),
-#'                        by = c(names(hist)[names(hist) %in%
-#'                                             c(FCIP_INSURANCE_POOL,"commodity_year","yield_year")]),
-#'                        .SDcols = c(names(hist)[names(hist) %in%
-#'                                                  c("yield_amount","trended_yield_amount","detrended_yield_amount")])];gc()
-#'           return(hist)
-#'         }, error = function(e){return(NULL)})
-#'       }), fill = TRUE)
+#' @param year [numeric] Year to process data for
 #'
-#'   df <- data.table::rbindlist(
-#'     lapply(
-#'       unique(df$yield_year),
-#'       function(year){
-#'         # year <- 2010
+#' @return \link[data.table]{data.table} with aggregated yield data, or NULL if processing fails
+process_single_archive <- function(year) {
+  tryCatch({
+    hist <- load_and_join_tables(year)
+
+    hist <- hist[, lapply(.SD, function(x) mean(x, na.rm = TRUE)),
+                 by = c(names(hist)[names(hist) %in%
+                                      c( FCIP_INSURANCE_POOL,
+                                        "commodity_year",
+                                        "yield_year")]),
+                 .SDcols = c(names(hist)[names(hist) %in%
+                                           c("yield_amount",
+                                             "trended_yield_amount",
+                                             "detrended_yield_amount")])]
+    return(hist)
+  }, error = function(e){return(NULL)})
+}
+
+#' Filter to earliest available trends per insurance pool
 #'
-#'         rma_yield <- df[yield_year %in% year]
+#' Computes the age of each yield record (yield_year - commodity_year) and
+#' filters to keep only the earliest available trend data for each FCIP
+#' insurance pool.
 #'
-#'         # compute age
-#'         rma_yield[, age := yield_year - commodity_year]
+#' @param rma_yield [\link[data.table]{data.table}] Yield data with yield_year and commodity_year columns
 #'
-#'         # compute the minimum age within each group
-#'         rma_yield[, age_min := min(age, na.rm = TRUE), by = FCIP_INSURANCE_POOL]
+#' @return \link[data.table]{data.table} filtered to earliest trends per insurance pool
+filter_earliest_trends <- function(rma_yield) {
+  rma_yield[, age := yield_year - commodity_year]
+  rma_yield[, age_min := min(age, na.rm = TRUE), by = FCIP_INSURANCE_POOL]
+  rma_yield <- rma_yield[age == age_min]
+  return(rma_yield)
+}
+
+#' Reconcile yield history across all years
 #'
-#'         # keep only the rows where age == age_min
-#'         # (this implicitly drops the temporary age_min later if you want)
-#'         rma_yield <- rma_yield[age == age_min]
+#' For each unique yield year, filters to the earliest available trends
+#' per insurance pool and computes mean yield amounts across pools.
 #'
-#'         # summarise the three yield-columns by group
-#'         rma_yield <- rma_yield[
-#'           , lapply(.SD, mean, na.rm = TRUE),
-#'           by     = FCIP_INSURANCE_POOL,
-#'           .SDcols = c("yield_amount", "trended_yield_amount", "detrended_yield_amount")];gc()
+#' @param df [\link[data.table]{data.table}] Combined yield data from all archives
 #'
-#'         rma_yield[, commodity_year := year]
+#' @return \link[data.table]{data.table} with reconciled yield history, one row per insurance pool per year
+reconcile_yield_history <- function(df) {
+  data.table::rbindlist(
+    lapply(
+      unique(df$yield_year),
+      function(year){
+        rma_yield <- df[yield_year %in% year]
+
+        rma_yield <- filter_earliest_trends(rma_yield)
+
+        rma_yield <- rma_yield[
+          , lapply(.SD, mean, na.rm = TRUE),
+          by     =  FCIP_INSURANCE_POOL,
+          .SDcols = c("yield_amount", "trended_yield_amount", "detrended_yield_amount")];gc()
+
+        rma_yield[, commodity_year := year]
+
+        return(rma_yield)
+      }), fill = TRUE)
+}
+
+#' Build county yield history from ADM data
 #'
-#'         return(rma_yield)
-#'       }), fill = TRUE);gc()
+#' Processes insurance offer and historical yield trend data for multiple years,
+#' merges them on the historical trend IDs, aggregates by mean within each year,
+#' then across all years selects the earliest available trend per FCIP insurance
+#' pool and computes average yields. Saves the result as an RDS file.
 #'
-#'   return(df)
-#' }
+#' @param years [numeric] Vector of years to process
+#' @param export_dir [character] Directory path where the output RDS file will be saved.
+#'   Defaults to "./data-raw"
+#' @param by_year [logical] Currently unused parameter (kept for compatibility)
+#'
+#' @return
+#' A \link[data.table]{data.table} with one row per FCIP insurance pool per year, containing
+#' the mean `yield_amount`, `trended_yield_amount`, and
+#' `detrended_yield_amount`, along with the corresponding
+#' `commodity_year` and `yield_year`.
+#'
+#' @details
+#' - Each year, the RMA rebuilds the historical yield trend table, so
+#'   yields may differ across different releases of that table.
+#' - This function uses information across all available tables to
+#'   construct a single, reconciled county yield history.
+#' - The output is automatically saved as an RDS file in the specified directory.
+#'
+#' @importFrom data.table rbindlist
+#' @importFrom dplyr inner_join
+#' @export
+#'
+build_county_yield_history <- function(years, export_dir = "./data-raw", by_year = TRUE) {
+
+  df <- data.table::rbindlist(
+    lapply(years, process_single_archive),
+    fill = TRUE
+  )
+
+  df <- reconcile_yield_history(df)
+
+
+  file_name <- paste0(export_dir, "/county_yield_history.rds")
+  saveRDS(df, file = file_name)
+
+
+}
