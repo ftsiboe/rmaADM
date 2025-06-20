@@ -8,9 +8,12 @@ devtools::load_all()
 # download the ADM files to data-raw
 download_adm2(
   years = 2011:2025,
-  dataset_codes = c("A01010","A01040","A00030","A01030","A01110","A00070","A00810"),
-  compress = TRUE
+  dataset_codes = c("A01010","A01040","A00030","A01020","A01030","A01110","A00070","A00810","A00200"),
+  compress = TRUE,
+  keep_source = TRUE,
 )
+
+
 
 
 # upload cleaned files as a data release
@@ -29,7 +32,7 @@ piggyback::pb_upload(
   rds_files,
   repo = "dylan-turner25/rmaADM",
   tag  = "v0.1.0",
-  overwrite = T
+  overwrite = F
 )
 
 

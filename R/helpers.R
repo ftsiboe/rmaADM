@@ -1,8 +1,18 @@
 
+# Global variable bindings to avoid R CMD check NOTEs
+if(getRversion() >= "2.15.1") {
+  utils::globalVariables(c(
+    "reference_amount_code", "record_category_code", "beta_id",
+    "unit_structure_code", "nme", "lookup_rate", "base_rate"
+  ))
+}
+
+#' @importFrom magrittr %>%
+
 #' Locate data asset files by year and dataset
 #'
-#' Internal helper function that searches for available data asset files that match the 
-#' specified year(s) and dataset. The function performs case-insensitive matching and 
+#' Internal helper function that searches for available data asset files that match the
+#' specified year(s) and dataset. The function performs case-insensitive matching and
 #' removes underscores from dataset names for flexible matching.
 #'
 #' @param year Numeric vector. The year(s) to search for (e.g., 2020 or c(2020, 2021)).
@@ -32,14 +42,8 @@ locate_data_asset <- function(year, dataset){
   # filter on year
   files <- all_files[grepl(paste0(year, collapse = "|"), all_files)]
 
-  # convert files to lower
-  files <- tolower(files)
-
-  # gsub "_" to ""
-  files <- gsub("_", "", files)
-
   # filter on dataset
-  files <- files[grepl(dataset, files)]
+  files <- files[grepl(dataset, tolower(gsub("_", "", files)))]
 
   # if length of files is zero, issue error message and a list of all files
   if(length(files) == 0){
@@ -180,6 +184,8 @@ compress_adm <- function(table_code, df, dir) {
   )
 
   ## Determine parameter list and aggregation keys
+  aggregation_point <- NULL
+  parameter_list <- NULL
 
   # Base Rate
   if (table_code == "A01010") {
@@ -204,11 +210,6 @@ compress_adm <- function(table_code, df, dir) {
     aggregation_point <- c(FCIP_INSURANCE_POOL, FCIP_INSURANCE_ELECTION[!FCIP_INSURANCE_ELECTION %in% "unit_structure_code"])
   }
 
-  # Beta ID
-  if (table_code == "A00030") {
-    parameter_list <- "beta_id"
-    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code", "unit_structure_code")
-  }
 
   # Combo Revenue Factor
   if (table_code == "A01030") {
@@ -235,6 +236,12 @@ compress_adm <- function(table_code, df, dir) {
   # Price
   if (table_code == "A00810") {
     parameter_list <- c("established_price", "projected_price", "harvest_price")
+    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
+  }
+
+  # Dates
+  if(table_code == "A00200"){
+    parameter_list <-  names(df)[grepl("_date", names(df))]
     aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
   }
 
@@ -265,35 +272,35 @@ compress_adm <- function(table_code, df, dir) {
 
   ## Special-case reshaping
 
-  if (table_code == "A00030") {
-    # Define unit structure flags
-    flags <- names(df)[grepl("_unit_", names(df)) & grepl("_allowed_flag", names(df))]
-    keepers <- intersect(c(aggregation_point, parameter_list), names(df))
-
-    # Filter out NA beta_id, select only keepers+flags, then unique
-    df <- unique(df[!is.na(beta_id), c(keepers, flags), with = FALSE])
-
-    # Melt to long, keep only the "Y" rows
-    df <- melt(
-      df,
-      id.vars = keepers,
-      measure.vars = flags,
-      variable.name = "nme",
-      value.name = "unit_structure_code"
-    )[unit_structure_code == "Y"]
-
-    # Map flag-names to two-letter codes
-    code_map <- c(
-      optional_unit_allowed_flag = "OU",
-      basic_unit_allowed_flag = "BU",
-      enterprise_unit_allowed_flag = "EU",
-      whole_farm_unit_allowed_flag = "WU",
-      enterprise_unit_by_practice_allowed_flag = "EU"
-    )
-
-    df[, unit_structure_code := code_map[nme]]
-    df[, nme := NULL]  # Drop the helper column
-  }
+  # if (table_code == "A00030") {
+  #   # Define unit structure flags
+  #   flags <- names(df)[grepl("_unit_", names(df)) & grepl("_allowed_flag", names(df))]
+  #   keepers <- intersect(c(aggregation_point, parameter_list), names(df))
+  #
+  #   # Filter out NA beta_id, select only keepers+flags, then unique
+  #   df <- unique(df[!is.na(beta_id), c(keepers, flags), with = FALSE])
+  #
+  #   # Melt to long, keep only the "Y" rows
+  #   df <- melt(
+  #     df,
+  #     id.vars = keepers,
+  #     measure.vars = flags,
+  #     variable.name = "nme",
+  #     value.name = "unit_structure_code"
+  #   )[unit_structure_code == "Y"]
+  #
+  #   # Map flag-names to two-letter codes
+  #   code_map <- c(
+  #     optional_unit_allowed_flag = "OU",
+  #     basic_unit_allowed_flag = "BU",
+  #     enterprise_unit_allowed_flag = "EU",
+  #     whole_farm_unit_allowed_flag = "WU",
+  #     enterprise_unit_by_practice_allowed_flag = "EU"
+  #   )
+  #
+  #   df[, unit_structure_code := code_map[nme]]
+  #   df[, nme := NULL]  # Drop the helper column
+  # }
 
   if (table_code == "A01030") {
     df <- df[, lookup_rate := base_rate
@@ -654,6 +661,7 @@ check_file_status <- function(year_dir, dataset_codes, update_date, overwrite = 
 #' @param dataset_codes Character vector. File name patterns to retain, if null, keeps all files.
 #' @param keep_source_files Logical. If `FALSE`, removes downloaded `.zip` archives after extraction.
 #' @param overwrite Logical. If `TRUE`, re-downloads and re-processes files even if the existing data appears up to date.
+#' @param compress Logical. If `TRUE`, applies data compression using `compress_adm()` function during processing. Defaults to `TRUE`.
 #'
 #' @return Invisibly returns `NULL`. Processed `.rds` files are written to disk in the specified directory.
 #'
@@ -713,16 +721,32 @@ download_adm2 <- function(
 
     if (!file_status$skip_download) {
 
-    # download & unzip data
+    # check for existing zip file before downloading
     data_zip <- file.path(year_dir, sprintf("adm_ytd_%s.zip", year))
-    utils::download.file(urls$data, data_zip, mode = "wb")
+
+    if (file.exists(data_zip)) {
+      cli::cli_alert_info("Found existing zip file for {year}; using cached download.")
+    } else {
+      # download data
+      utils::download.file(urls$data, data_zip, mode = "wb")
+    }
+
+    # unzip data
     utils::unzip(data_zip, exdir = year_dir)
     if (!keep_source_files) file.remove(data_zip)
 
     # optionally download & unzip layout
     if ("layout" %in% names(urls)) {
       layout_zip <- file.path(year_dir, sprintf("layout_%s.zip", year))
-      utils::download.file(urls$layout, layout_zip, mode = "wb")
+
+      if (file.exists(layout_zip)) {
+        cli::cli_alert_info("Found existing layout zip file for {year}; using cached download.")
+      } else {
+        # download layout
+        utils::download.file(urls$layout, layout_zip, mode = "wb")
+      }
+
+      # unzip layout
       utils::unzip(layout_zip, exdir = year_dir)
       if (!keep_source_files) file.remove(layout_zip)
     }

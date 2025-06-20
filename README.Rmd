@@ -30,56 +30,45 @@ load_all()
 
 ```
 
-The following table details the helper data sets included in the package. Any of the data sets can be loaded by using the `load_data()` function, for example `load_data("adm_layout")`.
-```{r helper_data, include=FALSE}
-  # initialize a dataframe with the columns "dataset","rows","columns","years","description"
-  df <- data.frame(dataset = character(),
-                   rows = integer(),
-                   columns = integer(),
-                   years = character(),
-                   description = character(),
-                   stringsAsFactors = FALSE)
-  
-  # fill in the dataframe with the dataset names, number of rows, number of columns, years, and description using the files in "./data"
-  for(f in list.files("./data", pattern = "\\.rda$")){
-    # load the dataset
-    load(paste0("./data/", f))
-    
-    # get the name of the dataset
-    name <- gsub("\\.rda$", "", f)
-    
-    # get the number of rows and columns
-    rows <- nrow(get(name))
-    columns <- ncol(get(name))
-    
-    # get the years covered by the dataset
-    years <- paste0(min(get(name)$reinsurance_year), "-", max(get(name)$reinsurance_year))
-    
-    # add a row to the dataframe
-    df <- rbind(df, data.frame(dataset = name,
-                                rows = rows,
-                                columns = columns,
-                                years = years,
-                                stringsAsFactors = FALSE))
-  }
+The primary exported function of rmaADM package is `get_adm_data`. This function retrieves precompiled data sets that are stored in the package's GitHub repository as a release. Below is an example of how to use this function:
+```{r example, echo=TRUE, eval = FALSE}
+
+# install the rmaADM package from GitHub
+remotes::install_github("dylan-turner25/rmaADM", force = T)
+
+# load the rmaADM package
+library(rmaADM)
+
+# load the 2012 base rate data set. If this is the first 
+# time downloading, you'll see a message about the dataset 
+# being downloade from github.
+df <- get_adm_data(year = 2012, dataset = "baserate")
+
+# the data is cached in the R library folder for the rmaADM package
+# if you run the same command again, it will not download the data again
+# and will load much faster.
+df <- get_adm_data(year = 2012, dataset = "baserate")
+
+# if you want to clear the cache and force the data to be downloaded again,
+# you can use the clear_rmaADM_cache function.
+clear_rmaADM_cache()
+
+# running the same command again will now download the data again
+df <- get_adm_data(year = 2012, dataset = "baserate")
 
 
-  # define descriptions of the data set
-  descriptions_list = list("AdmLayout" = "A dataset containing the layout of the ADM data.",
-                           "Interval" = "A dataset containing info on PRF intervals")
+# the get_adm_data function is case-insensitive for dataset names
+# and can use the name or record code. All of the following return the 
+# same data for the year 2012.
+get_adm_data(year = 2012, dataset = "BaseRate")
+get_adm_data(year = 2012, dataset = "base_RaTe")
+get_adm_data(year = 2012, dataset = "A01010")
+get_adm_data(year = 2012, dataset = "a01010")
 
-  # merge the descriptions into the dataframe
-  df <- df %>%
-    left_join(data.frame(dataset = names(descriptions_list),
-                         description = unlist(descriptions_list)),
-              by = "dataset") %>%
-    mutate(description = ifelse(is.na(description), "No description available", description))
-  
 
-  
+# to see all the avaliable datasets you can run the helper function list_data_assets
+all_data <- rmaADM:::list_data_assets()
+
 
 ```
 
-```{r, include = TRUE, echo = FALSE}
- knitr::kable(df)
-```

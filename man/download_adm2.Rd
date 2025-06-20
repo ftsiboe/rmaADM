@@ -26,6 +26,8 @@ download_adm2(
 \item{keep_source_files}{Logical. If \code{FALSE}, removes downloaded \code{.zip} archives after extraction.}
 
 \item{overwrite}{Logical. If \code{TRUE}, re-downloads and re-processes files even if the existing data appears up to date.}
+
+\item{compress}{Logical. If \code{TRUE}, applies data compression using \code{compress_adm()} function during processing. Defaults to \code{TRUE}.}
 }
 \value{
 Invisibly returns \code{NULL}. Processed \code{.rds} files are written to disk in the specified directory.
