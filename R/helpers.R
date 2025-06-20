@@ -349,8 +349,16 @@ locate_download_link <- function(year = 2012,
                                  ice_url = "https://pubfs-rma.fpac.usda.gov/pub/References/insurance_control_elements/PASS/",
                                  data_source = c("adm","ice")){
 
+  if(data_source == "ice"){
+    url <- ice_url
+  }
+
+  if(data_source == "adm"){
+    url <- adm_url
+  }
+
   # read in the webpage
-  html <- suppressWarnings(paste0(readLines(adm_url), collapse = "\n"))
+  html <- suppressWarnings(paste0(readLines(url), collapse = "\n"))
 
   # locate all the links
   links <- as.character(data.frame(stringr::str_match_all(html,
@@ -365,7 +373,7 @@ locate_download_link <- function(year = 2012,
   link <- gsub("href=\"", "", link)
   link <- gsub("\"", "", link)
   link <- gsub("\\./", "", link)
-  link <- paste0(adm_url, link)
+  link <- paste0(url, link)
 
   # navigate the the cleaned link to get the correct sublink
   html <- suppressWarnings(paste0(readLines(link), collapse = "\n"))
