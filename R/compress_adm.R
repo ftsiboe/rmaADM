@@ -85,7 +85,7 @@ compress_adm <- function(table_code, df, dir) {
   # Premium Subsidy Percent
   if (table_code == "A00070") {
     parameter_list <- c("subsidy_percent")
-    aggregation_point <- FCIP_INSURANCE_ELECTION
+    aggregation_point <- c(FCIP_INSURANCE_ELECTION, "commodity_year")
   }
 
   # Price
