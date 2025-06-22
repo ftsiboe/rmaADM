@@ -1,9 +1,6 @@
 # load package
 devtools::load_all()
 
-# record codes to keep as helper datasets
-#helper_data_sets <- c("A01090","A00070","A00200")
-#regular_data_sets <- c("A01020")
 
 # download the ADM files to data-raw
 download_adm2(
