@@ -212,7 +212,7 @@ compress_adm <- function(table_code, df, dir) {
   # Premium Subsidy Percent
   if (table_code == "A00070") {
     parameter_list <- c("subsidy_percent")
-    aggregation_point <- FCIP_INSURANCE_ELECTION
+    aggregation_point <- c(FCIP_INSURANCE_ELECTION,"reinsurance_year")
   }
 
   # Price
@@ -252,37 +252,12 @@ compress_adm <- function(table_code, df, dir) {
     df <- df[record_category_code == 1]
   }
 
-  ## Special-case reshaping
+  # if "reinsurance_year" is in names(df) rename to commodity_year
+  if("reinsurance_year" %in% names(df)){
+    setnames(df, "reinsurance_year", "commodity_year")
+  }
 
-  # if (table_code == "A00030") {
-  #   # Define unit structure flags
-  #   flags <- names(df)[grepl("_unit_", names(df)) & grepl("_allowed_flag", names(df))]
-  #   keepers <- intersect(c(aggregation_point, parameter_list), names(df))
-  #
-  #   # Filter out NA beta_id, select only keepers+flags, then unique
-  #   df <- unique(df[!is.na(beta_id), c(keepers, flags), with = FALSE])
-  #
-  #   # Melt to long, keep only the "Y" rows
-  #   df <- melt(
-  #     df,
-  #     id.vars = keepers,
-  #     measure.vars = flags,
-  #     variable.name = "nme",
-  #     value.name = "unit_structure_code"
-  #   )[unit_structure_code == "Y"]
-  #
-  #   # Map flag-names to two-letter codes
-  #   code_map <- c(
-  #     optional_unit_allowed_flag = "OU",
-  #     basic_unit_allowed_flag = "BU",
-  #     enterprise_unit_allowed_flag = "EU",
-  #     whole_farm_unit_allowed_flag = "WU",
-  #     enterprise_unit_by_practice_allowed_flag = "EU"
-  #   )
-  #
-  #   df[, unit_structure_code := code_map[nme]]
-  #   df[, nme := NULL]  # Drop the helper column
-  # }
+  ## Special-case reshaping
 
   if (table_code == "A01030") {
     df <- df[, lookup_rate := base_rate

@@ -30,6 +30,21 @@ load_all()
 
 ```
 
+# rmaADM
+
+The `rmaADM` package provides easy access to USDA Risk Management Agency (RMA) Actuarial Data Master (ADM) datasets. This package downloads and provides cleaned, processed versions of RMA actuarial data for crop insurance analysis across multiple years (2011-2025).
+
+## Installation
+
+You can install the development version of rmaADM from GitHub:
+
+```{r install, eval=FALSE}
+# Install from GitHub
+remotes::install_github("dylan-turner25/rmaADM")
+```
+
+## Usage
+
 The primary exported function of rmaADM package is `get_adm_data`. This function retrieves precompiled data sets that are stored in the package's GitHub repository as a release. Below is an example of how to use this function:
 ```{r example, echo=TRUE, eval = FALSE}
 
@@ -66,9 +81,57 @@ get_adm_data(year = 2012, dataset = "A01010")
 get_adm_data(year = 2012, dataset = "a01010")
 
 
-# to see all the avaliable datasets you can run the helper function list_data_assets
+# to see all the available datasets you can run the helper function list_data_assets
 all_data <- rmaADM:::list_data_assets()
-
-
 ```
+
+## Available Datasets
+
+The package provides access to multiple ADM datasets across years 2011-2025:
+
+- **BaseRate (A01010)**: Base rates for crop insurance
+- **Price (A00810)**: Commodity prices  
+- **SubsidyPercent (A00070)**: Premium subsidy percentages
+- **InsuranceOffer (A00030)**: Insurance offer information
+- **Beta (A01020)**: Beta values for rate calculations
+- **ComboRevenueFactor (A01030)**: Combined revenue factors
+- **CoverageLevelDifferential (A01040)**: Coverage level differentials
+- **HistoricalRevenueCapping (A01110)**: Historical revenue capping data
+- **HistoricalYieldTrend (A01115)**: Historical yield trend data (2016+)
+- **AreaCoverageLevel (A01130)**: Area coverage levels (2017+)
+- **AreaRate (A01135)**: Area rates (2017+)
+- **Date (A00200)**: Date information
+
+```{r datasets, eval=FALSE}
+# Example: Get price data for 2024
+price_data <- get_adm_data(year = 2024, dataset = "price")
+
+# Example: Get subsidy percentage data for 2023  
+subsidy_data <- get_adm_data(year = 2023, dataset = "subsidypercent")
+
+# Example: Get historical yield trends for 2020
+yield_trends <- get_adm_data(year = 2020, dataset = "historicalyieldtrend")
+```
+
+## Key Functions
+
+- **`get_adm_data(year, dataset)`**: Main function to retrieve ADM data
+- **`clear_rmaADM_cache()`**: Clear cached data to force re-download
+- **`list_data_assets()`**: List all available data assets
+- **`build_county_yield_history()`**: Build county yield history datasets
+
+## Data Coverage
+
+The package covers years 2011-2025, with some datasets only available for certain years:
+- Core datasets (BaseRate, Price, SubsidyPercent, etc.): 2011-2025
+- HistoricalYieldTrend: 2016-2025  
+- Area-level datasets (AreaCoverageLevel, AreaRate): 2017-2025
+
+## License
+
+MIT License
+
+## Author
+
+Dylan Turner (dylan.turner3@outlook.com)
 
