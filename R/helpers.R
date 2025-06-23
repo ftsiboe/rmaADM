@@ -233,12 +233,12 @@ compress_adm <- function(table_code, df, dir) {
   #   aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
   # }
 
-  ## Read RDS and coerce to numeric
-  setDT(df)
-
-  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
-    .SD, function(x) as.numeric(as.character(x))
-  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
+  # ## Read RDS and coerce to numeric
+  # setDT(df)
+  #
+  # df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
+  #   .SD, function(x) as.numeric(as.character(x))
+  # ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
 
   ## Filter on reference/record codes if present
 
@@ -903,6 +903,16 @@ clean_data <- function(df){
       }
     })
   }
+
+
+  ## Read RDS and coerce to numeric
+  setDT(df)
+
+  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
+    .SD, function(x) as.numeric(as.character(x))
+  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
+
+
 
   # return the df
   return(df)

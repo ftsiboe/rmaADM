@@ -4,7 +4,7 @@ devtools::load_all()
 
 # download the ADM files to data-raw
 download_adm2(
-  years = 2011:2025,
+  years = 2011,
   dataset_codes = c("A01010",
                     "A01040",
                     "A00030",
@@ -18,12 +18,13 @@ download_adm2(
                     "A01005"  # AreaRiskRate
   ),
   compress = TRUE,
-  keep_source = TRUE
+  keep_source = TRUE,
+  overwrite = TRUE
 )
 
 # download subsidy and price datasets without any compression
 download_adm2(
-  years = 2011:2025,
+  years = 2011,
   dataset_codes = c(
                     "A00070", # subsidy percent
                     "A00810" # price
