@@ -11,8 +11,6 @@ download_adm2(
                     "A01020",
                     "A01030",
                     "A01110",
-                    "A00070", # subsidy percent
-                    "A00810", # price
                     "A00200",
                     "A01115", # historical yield trend
                     "A01130", # AreaCoverageLevel
@@ -22,6 +20,19 @@ download_adm2(
   compress = TRUE,
   keep_source = TRUE
 )
+
+# download subsidy and price datasets without any compression
+download_adm2(
+  years = 2011:2025,
+  dataset_codes = c(
+                    "A00070", # subsidy percent
+                    "A00810" # price
+                   ),
+  compress = FALSE,
+  keep_source = TRUE,
+  overwrite = TRUE
+  )
+
 
 
 # build county yield history
@@ -40,11 +51,16 @@ piggyback::pb_new_release(
 rds_files <- list.files("data-raw", "\\.rds$",
                         full.names = TRUE, recursive = TRUE)
 
+#upload  .rds files into that release
+rds_files <- list.files("data-raw", "AreaRiskRate",
+                        full.names = TRUE, recursive = TRUE)
+
+
 piggyback::pb_upload(
   rds_files,
   repo = "dylan-turner25/rmaADM",
   tag  = "v0.1.0",
-  overwrite = F
+  overwrite = T
 )
 
 
