@@ -32,6 +32,13 @@ load_all()
 
 # rmaADM
 
+<!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-maturing-blue.svg)](https://lifecycle.r-lib.org/articles/stages.html#maturing)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![R-CMD-check](https://github.com/dylan-turner25/rmaADM/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/dylan-turner25/rmaADM/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/dylan-turner25/rmaADM/branch/main/graph/badge.svg)](https://app.codecov.io/gh/dylan-turner25/rmaADM?branch=main)
+<!-- badges: end -->
+
 The `rmaADM` package provides easy access to USDA Risk Management Agency (RMA) Actuarial Data Master (ADM) datasets. This package downloads and provides cleaned, processed versions of RMA actuarial data for crop insurance analysis across multiple years (2011-2025).
 
 ## Installation
