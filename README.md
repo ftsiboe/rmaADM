@@ -5,8 +5,9 @@ rmaADM
   - [Installation](#installation)
   - [Usage](#usage)
   - [Available Datasets](#available-datasets)
-  - [Key Functions](#key-functions)
-  - [Data Coverage](#data-coverage)
+  - [Caching Behavior](#caching-behavior)
+    - [How Caching Works](#how-caching-works)
+    - [Cache Management](#cache-management)
   - [License](#license)
   - [Author](#author)
 
@@ -91,32 +92,33 @@ The package provides access to multiple ADM datasets across years
 - **AreaCoverageLevel (A01130)**: Area coverage levels (2017+)
 - **AreaRate (A01135)**: Area rates (2017+)
 - **Date (A00200)**: Date information
+- **county_yield_history**: A dataset combining HistoricalYieldTrend and
+  InsuranceOffer
 
-``` r
-# Example: Get price data for 2024
-price_data <- get_adm_data(year = 2024, dataset = "price")
+## Caching Behavior
 
-# Example: Get subsidy percentage data for 2023  
-subsidy_data <- get_adm_data(year = 2023, dataset = "subsidypercent")
+The `get_adm_data()` function implements a caching system to minimize
+download times and reduce bandwidth usage. The cached files are stored
+in the same location that the package is installed. To view the cache
+folder location, run `tools::R_user_dir("rmaADM", which = "cache")`.
 
-# Example: Get historical yield trends for 2020
-yield_trends <- get_adm_data(year = 2020, dataset = "historicalyieldtrend")
-```
+### How Caching Works
 
-## Key Functions
+1.  **First Request**: When you call `get_adm_data()` for a dataset, the
+    function:
+    - Checks if the file exists in the local cache
+    - If not found, downloads the RDS file from GitHub releases
+    - Stores the file in the cache directory
+    - Returns the data
+2.  **Subsequent Requests**: For the same dataset:
+    - Loads directly from the cached file (much faster)
+    - No network request is made
 
-- **`get_adm_data(year, dataset)`**: Main function to retrieve ADM data
-- **`clear_rmaADM_cache()`**: Clear cached data to force re-download
-- **`list_data_assets()`**: List all available data assets
-- **`build_county_yield_history()`**: Build county yield history
-  datasets
+### Cache Management
 
-## Data Coverage
-
-The package covers years 2011-2025, with some datasets only available
-for certain years: - Core datasets (BaseRate, Price, SubsidyPercent,
-etc.): 2011-2025 - HistoricalYieldTrend: 2016-2025  
-- Area-level datasets (AreaCoverageLevel, AreaRate): 2017-2025
+To clear the cache, run `clear_rmaADM_cache()`, after which
+`get_adm_data()` will redownload the relevant files the first time they
+are requested after the cache is cleared.
 
 ## License
 

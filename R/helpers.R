@@ -905,14 +905,13 @@ clean_data <- function(df){
   }
 
 
-  ## Read RDS and coerce to numeric
-  setDT(df)
-
-  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
-    .SD, function(x) as.numeric(as.character(x))
-  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
-
-
+  # Convert key columns to numeric if they exist
+  numeric_cols <- intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))
+  if(length(numeric_cols) > 0) {
+    for(col in numeric_cols) {
+      df[[col]] <- as.numeric(as.character(df[[col]]))
+    }
+  }
 
   # return the df
   return(df)

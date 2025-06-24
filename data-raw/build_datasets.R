@@ -4,7 +4,7 @@ devtools::load_all()
 
 # download the ADM files to data-raw
 download_adm2(
-  years = 2011,
+  years = 2011:2025,
   dataset_codes = c("A01010",
                     "A01040",
                     "A00030",
@@ -24,7 +24,7 @@ download_adm2(
 
 # download subsidy and price datasets without any compression
 download_adm2(
-  years = 2011,
+  years = 2011:2025,
   dataset_codes = c(
                     "A00070", # subsidy percent
                     "A00810" # price
@@ -34,10 +34,6 @@ download_adm2(
   overwrite = TRUE
   )
 
-
-
-# build county yield history
-build_county_yield_history(years = 2016:2025)
 
 
 # upload cleaned files as a data release
@@ -52,8 +48,21 @@ piggyback::pb_new_release(
 rds_files <- list.files("data-raw", "\\.rds$",
                         full.names = TRUE, recursive = TRUE)
 
+
+piggyback::pb_upload(
+  rds_files,
+  repo = "dylan-turner25/rmaADM",
+  tag  = "v0.1.0",
+  overwrite = T
+)
+
+
+
+# build county yield history
+build_county_yield_history(years = 2016:2025)
+
 #upload  .rds files into that release
-rds_files <- list.files("data-raw", "AreaRiskRate",
+rds_files <- list.files("data-raw", "county_yield_history.rds$",
                         full.names = TRUE, recursive = TRUE)
 
 
@@ -63,6 +72,5 @@ piggyback::pb_upload(
   tag  = "v0.1.0",
   overwrite = T
 )
-
 
 
