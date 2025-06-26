@@ -252,8 +252,8 @@ compress_adm <- function(table_code, df, dir) {
     df <- df[record_category_code == 1]
   }
 
-  # if "reinsurance_year" is in names(df) rename to commodity_year
-  if("reinsurance_year" %in% names(df)){
+  # if "reinsurance_year" is in names(df) and "commodity_year" is not present, rename to commodity_year
+  if("reinsurance_year" %in% names(df) && !"commodity_year" %in% names(df)){
     setnames(df, "reinsurance_year", "commodity_year")
   }
 
