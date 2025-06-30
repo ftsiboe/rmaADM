@@ -15,25 +15,14 @@ download_adm2(
                     "A01115", # historical yield trend
                     "A01130", # AreaCoverageLevel
                     "A01135", # Area Rate"
-                    "A01005"  # AreaRiskRate
-  ),
-  compress = TRUE,
-  keep_source = TRUE,
-  overwrite = TRUE
-)
-
-# download subsidy and price datasets without any compression
-download_adm2(
-  years = 2011:2025,
-  dataset_codes = c(
+                    "A01005",  # AreaRiskRate
                     "A00070", # subsidy percent
                     "A00810" # price
-                   ),
+  ),
   compress = FALSE,
   keep_source = TRUE,
   overwrite = TRUE
-  )
-
+)
 
 
 # upload cleaned files as a data release
