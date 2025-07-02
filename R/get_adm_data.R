@@ -5,7 +5,7 @@
 #' automatically locates the appropriate data asset and loads it from cache or downloads
 #' it from GitHub releases if not available locally.
 #'
-#' @param year Numeric. The year of ADM data to retrieve. Defaults to 2012.
+#' @param year Numeric or vector. The year(s) of ADM data to retrieve. Can be a single year or vector of years. When multiple years are provided, data is downloaded for each year and row-bound into a single data frame. Defaults to NULL.
 #' @param dataset Character. The dataset type to retrieve (e.g., "baserate", "premium",
 #'   "subsidy"). Defaults to "baserate". Dataset names are case-insensitive and
 #'   underscores are automatically handled.
@@ -31,6 +31,9 @@
 #'
 #' # Get subsidy data for 2018
 #' combo_2018 <- get_adm_data(year = 2018, dataset = "comborevenuefactor")
+#'
+#' # Get baserate data for multiple years
+#' baserate_multi <- get_adm_data(year = c(2018, 2019, 2020), dataset = "baserate")
 #' }
 #'
 #' @seealso
@@ -40,13 +43,22 @@
 #' @export
 get_adm_data <- function(year = NULL, dataset = "baserate"){
 
-  # get list of all assets
+  # Handle vector of years by looping and row-binding
+  if(!is.null(year) && length(year) > 1){
+    data_list <- list()
+    for(i in seq_along(year)){
+      single_year <- year[i]
+      file <- locate_data_asset(single_year, dataset)
+      data_list[[i]] <- get_cached_rds(file)
+    }
+    # Row-bind all data frames
+    data <- do.call(rbind, data_list)
+    return(data)
+  }
+  
+  # Original logic for single year or NULL
   file  <- locate_data_asset(year, dataset)
-
-  # load the file from cache or github
   data <- get_cached_rds(file)
-
-  # return the data
   return(data)
 }
 

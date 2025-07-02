@@ -7,7 +7,7 @@
 get_adm_data(year = NULL, dataset = "baserate")
 }
 \arguments{
-\item{year}{Numeric. The year of ADM data to retrieve. Defaults to 2012.}
+\item{year}{Numeric or vector. The year(s) of ADM data to retrieve. Can be a single year or vector of years. When multiple years are provided, data is downloaded for each year and row-bound into a single data frame. Defaults to NULL.}
 
 \item{dataset}{Character. The dataset type to retrieve (e.g., "baserate", "premium",
 "subsidy"). Defaults to "baserate". Dataset names are case-insensitive and
@@ -40,6 +40,9 @@ price_2020 <- get_adm_data(year = 2020, dataset = "price")
 
 # Get subsidy data for 2018
 combo_2018 <- get_adm_data(year = 2018, dataset = "comborevenuefactor")
+
+# Get baserate data for multiple years
+baserate_multi <- get_adm_data(year = c(2018, 2019, 2020), dataset = "baserate")
 }
 
 }
