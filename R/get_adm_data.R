@@ -52,10 +52,10 @@ get_adm_data <- function(year = NULL, dataset = "baserate"){
       data_list[[i]] <- get_cached_rds(file)
     }
     # Row-bind all data frames
-    data <- do.call(rbind, data_list)
+    data <- dplyr::bind_rows(data_list)
     return(data)
   }
-  
+
   # Original logic for single year or NULL
   file  <- locate_data_asset(year, dataset)
   data <- get_cached_rds(file)

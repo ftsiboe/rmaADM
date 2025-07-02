@@ -11,7 +11,7 @@ download_adm2(
                     "A01020",
                     "A01030",
                     "A01110",
-                    "A00200",
+                    "A00200", # dates
                     "A01115", # historical yield trend
                     "A01130", # AreaCoverageLevel
                     "A01135", # Area Rate"
