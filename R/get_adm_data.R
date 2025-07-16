@@ -17,12 +17,14 @@
 #' \itemize{
 #'   \item Locates the appropriate data file based on year and dataset
 #'   \item Loads data from local cache or downloads from GitHub releases if needed
+#'   \item Handles both legacy RDS and new parquet formats automatically
+#'   \item Restores factor levels for parquet files using stored metadata
 #'   \item Handles case-insensitive dataset matching
 #'   \item Automatically manages data download and caching
 #' }
 #'
-#' The function expects that data has been previously processed and uploaded to GitHub
-#' releases using the \code{\link{download_adm2}} workflow.
+#' The function works with data processed using the \code{\link{download_adm2}} workflow,
+#' which outputs optimized parquet files with automatic type detection.
 #'
 #' @examples
 #' \dontrun{
@@ -49,7 +51,7 @@ get_adm_data <- function(year = NULL, dataset = "baserate"){
     for(i in seq_along(year)){
       single_year <- year[i]
       file <- locate_data_asset(single_year, dataset)
-      data_list[[i]] <- get_cached_rds(file)
+      data_list[[i]] <- get_cached_data(file)
     }
     # Row-bind all data frames
     data <- dplyr::bind_rows(data_list)
@@ -58,7 +60,7 @@ get_adm_data <- function(year = NULL, dataset = "baserate"){
 
   # Original logic for single year or NULL
   file  <- locate_data_asset(year, dataset)
-  data <- get_cached_rds(file)
+  data <- get_cached_data(file)
   return(data)
 }
 

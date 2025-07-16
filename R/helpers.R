@@ -92,10 +92,126 @@ get_cached_rds <- function(name,
   readRDS(dest_file)
 }
 
-#' Clear the package cache of downloaded RDS files
+
+#' Download and read data files from GitHub Releases (supports RDS and parquet)
+#'
+#' Downloads data files from GitHub releases and loads them into R. Supports both
+#' legacy .rds files and new .parquet files with automatic factor level restoration.
+#'
+#' @param name Character. The basename of the data file (e.g., "foo.rds" or "bar.parquet")
+#' @param repo Character. GitHub repository in format "owner/repo"
+#' @param tag Character. Which release tag to download from (default: latest)
+#'
+#' @return A data.frame containing the loaded data with properly restored factor levels
+#'
+#' @details
+#' This function:
+#' \itemize{
+#'   \item Downloads files from GitHub releases using piggyback
+#'   \item Caches files locally to avoid repeated downloads
+#'   \item Automatically detects file format (.rds vs .parquet)
+#'   \item Restores factor levels for parquet files using stored metadata
+#'   \item Maintains backward compatibility with existing RDS files
+#' }
+#'
+#' @importFrom arrow read_parquet
+#' @importFrom piggyback pb_download
+#' @keywords internal
+get_cached_data <- function(name,
+                           repo = "dylan-turner25/rmaADM",
+                           tag  = NULL) {
+  dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
+  if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
+
+  dest_file <- file.path(dest_dir, name)
+
+  # Download if not cached
+  if (!file.exists(dest_file)) {
+    piggyback::pb_download(
+      file = name,
+      repo = repo,
+      tag  = tag,
+      dest = dest_dir
+    )
+  }
+
+  # Read based on file extension
+  file_ext <- tools::file_ext(name)
+
+  if (file_ext == "rds") {
+    # Legacy RDS files
+    data <- readRDS(dest_file)
+  } else if (file_ext == "parquet") {
+    # New parquet files
+    data <- arrow::read_parquet(dest_file)
+
+    # Restore factor levels if metadata exists
+    data <- restore_factor_levels(data, name)
+  } else {
+    stop("Unsupported file format: ", file_ext, ". Supported formats: rds, parquet")
+  }
+
+  return(data)
+}
+
+
+#' Restore factor levels for parquet data using metadata
+#'
+#' @param data data.frame. The data read from parquet file
+#' @param filename Character. Original filename to derive metadata key
+#' @return data.frame with restored factor levels
+#' @keywords internal
+restore_factor_levels <- function(data, filename) {
+  # Try to load factor metadata
+  metadata_file <- system.file("data", "adm_factor_metadata.rds", package = "rmaADM")
+
+  # If package metadata doesn't exist, check local data folder
+  if (!file.exists(metadata_file) || metadata_file == "") {
+    metadata_file <- "./data/adm_factor_metadata.rds"
+  }
+
+  if (!file.exists(metadata_file)) {
+    # No metadata available, return data as-is
+    return(data)
+  }
+
+  # Load metadata
+  factor_metadata <- readRDS(metadata_file)
+
+  # Generate metadata key from filename (remove extension and path)
+  metadata_key <- tools::file_path_sans_ext(basename(filename))
+
+  # Find matching metadata key (try exact match first, then partial matches)
+  matching_keys <- names(factor_metadata)[names(factor_metadata) == metadata_key]
+  if (length(matching_keys) == 0) {
+    # Try partial matches for dataset names
+    matching_keys <- names(factor_metadata)[grepl(metadata_key, names(factor_metadata)) |
+                                           grepl(gsub("\\d+", "", metadata_key), names(factor_metadata))]
+  }
+
+  if (length(matching_keys) == 0) {
+    # No matching metadata, return as-is
+    return(data)
+  }
+
+  # Use the first matching key
+  column_metadata <- factor_metadata[[matching_keys[1]]]
+
+  # Restore factor levels for matching columns
+  for (col_name in names(column_metadata)) {
+    if (col_name %in% names(data)) {
+      factor_levels <- column_metadata[[col_name]]
+      data[[col_name]] <- factor(data[[col_name]], levels = factor_levels)
+    }
+  }
+
+  return(data)
+}
+
+#' Clear the package cache of downloaded data files
 #'
 #' Deletes the entire cache directory used by the **rmaADM** package to store
-#' downloaded \*.rds files. Useful if you need to force re-download of data,
+#' downloaded data files. Useful if you need to force re-download of data,
 #' or free up disk space.
 #'
 #' @return Invisibly returns `NULL`. A message is printed indicating which
@@ -104,7 +220,7 @@ get_cached_rds <- function(name,
 #'
 #' @examples
 #' \dontrun{
-#' # Remove all cached RDS files so they will be re-downloaded on next use
+#' # Remove all cached data files so they will be re-downloaded on next use
 #' clear_rmaADM_cache()
 #' }
 clear_rmaADM_cache <- function(){
@@ -613,16 +729,14 @@ check_file_status <- function(year_dir, dataset_codes, overwrite = FALSE) {
 #' @param dataset_codes Character vector. File name patterns to retain, if null, keeps all files.
 #' @param keep_source_files Logical. If `FALSE`, removes downloaded `.zip` archives after extraction.
 #' @param overwrite Logical. If `TRUE`, re-downloads and re-processes files even if the existing data appears up to date.
-#' @param compress Logical. If `TRUE`, applies data compression using `compress_adm()` function during processing. Defaults to `TRUE`.
 #'
-#' @return Invisibly returns `NULL`. Processed `.rds` files are written to disk in the specified directory.
+#' @return Invisibly returns `NULL`. Processed `.parquet` files are written to disk in the specified directory.
 #'
 #' @details
 #' The function reads each `.txt` file in chunks (default 1 million rows at a time),
-#' applies a `clean_data()` function to each chunk (assumed to be defined elsewhere),
-#' and writes the results to compressed `.rds` files using `xz` compression.
-#' Files are only re-downloaded if the remote data is newer than the latest local file,
-#' unless `overwrite = TRUE`.
+#' applies automatic type optimization and factor conversion, then writes the results
+#' to compressed `.parquet` files. Files are only re-downloaded if the remote data 
+#' is newer than the latest local file, unless `overwrite = TRUE`.
 #'
 #' @note Files are read using `data.table::fread()` with all columns as character to reduce type inference overhead.
 #' Chunked processing is used to reduce peak memory usage during conversion.
@@ -637,8 +751,7 @@ download_adm2 <- function(
     dir = "./data-raw",
     dataset_codes = c("A01090","A00070"),
     keep_source_files = FALSE,
-    overwrite = FALSE,
-    compress = TRUE
+    overwrite = FALSE
 ) {
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
@@ -732,12 +845,12 @@ download_adm2 <- function(
       txt_files <- setdiff(txt_files, to_del)
     }
 
-    # convert each .txt to .rds
+    # convert each .txt to parquet format
     for (f in txt_files) {
 
       chunk_size <- 1000000
-      out_rds <- sub("\\.txt$", ".rds", f)
-      temp_dir <- file.path(dirname(out_rds), "temp_chunks")
+      output_file <- sub("\\.txt$", ".parquet", f)
+      temp_dir <- file.path(dirname(output_file), "temp_chunks")
       dir.create(temp_dir, showWarnings = FALSE)
 
       chunk_count <- 0
@@ -774,9 +887,6 @@ download_adm2 <- function(
           colnames(dt) <- dt_names
         }
 
-        if (compress) {
-          dt <- compress_adm(table_code = substr(basename(f), 6, 11), df = dt)
-        }
 
         # Save chunk to temporary file
         temp_file <- file.path(temp_dir, paste0("chunk_", chunk_count, ".rds"))
@@ -802,13 +912,13 @@ download_adm2 <- function(
         # Stream remaining chunks
         for (i in 2:length(temp_files)) {
           chunk_dt <- readRDS(temp_files[i])
-          
+
           # Convert chunk to numeric before rbinding
           setDT(chunk_dt)
           chunk_dt[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(chunk_dt))) := lapply(
             .SD, function(x) as.numeric(as.character(x))
           ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(chunk_dt))]
-          
+
           final_dt <- rbind(final_dt, chunk_dt)
           rm(chunk_dt)
           file.remove(temp_files[i])
@@ -816,7 +926,12 @@ download_adm2 <- function(
         }
 
 
-        saveRDS(final_dt, out_rds, compress = "xz")
+        # Save final data as parquet with type optimization
+        table_code <- substr(basename(f), 6, 11)
+        year <- as.numeric(gsub(".*/(\\d{4})/.*", "\\1", f))
+        metadata_key <- paste0(table_code, "_", year)
+        
+        compress_adm2(final_dt, output_file, metadata_key)
         rm(final_dt)
       }
 
@@ -829,6 +944,162 @@ download_adm2 <- function(
   }
 
   invisible(NULL)
+}
+
+
+#' Test if a column can be converted to numeric without data loss
+#'
+#' @param x A vector to test for numeric convertibility
+#' @return Logical. TRUE if all non-NA values can be converted to numeric without loss
+#' @keywords internal
+is_numeric_convertible <- function(x, col_name = NULL) {
+  if (is.numeric(x)) return(TRUE)
+  if (!is.character(x)) return(FALSE)
+  
+  # Domain-specific rules for ADM data - keep these as character/factors
+  if (!is.null(col_name)) {
+    adm_code_patterns <- c(
+      "_code$", "_id$", "^state_", "^county_", "^commodity_",
+      "^type_code", "^class_code", "^sub_class", "^record_type",
+      "^program_type", "^unit_structure", "^insurance_plan_code"
+    )
+    
+    if (any(grepl(paste(adm_code_patterns, collapse = "|"), col_name, ignore.case = TRUE))) {
+      return(FALSE)
+    }
+  }
+
+  # Remove leading/trailing whitespace
+  x_clean <- trimws(x)
+  
+  # Additional heuristics to avoid converting codes to numeric
+  unique_vals <- unique(x_clean[!is.na(x_clean) & x_clean != ""])
+  
+  # If values look like zero-padded codes, keep as character
+  if (any(grepl("^0[0-9]+$", unique_vals))) {
+    return(FALSE)
+  }
+  
+  # If high proportion of values are whole numbers that could be codes
+  # and cardinality is relatively low, likely categorical
+  if (length(unique_vals) / length(x_clean) < 0.1 && 
+      all(grepl("^[0-9]+$", unique_vals[1:min(10, length(unique_vals))]))) {
+    return(FALSE)
+  }
+
+  # Try to convert to numeric
+  x_numeric <- suppressWarnings(as.numeric(x_clean))
+
+  # Check if conversion was lossless (ignoring NA values)
+  non_na_original <- !is.na(x_clean) & x_clean != ""
+  non_na_converted <- !is.na(x_numeric)
+
+  # All non-empty, non-NA values should convert successfully
+  all(non_na_original == non_na_converted)
+}
+
+
+#' Optimize data types and save as parquet format
+#'
+#' Automatically detects numeric columns, converts character columns to factors,
+#' and saves as compressed parquet files for optimal storage efficiency while 
+#' preserving all data.
+#'
+#' @param df A data.frame to optimize and save
+#' @param output_path Character. Path where the parquet file should be saved
+#' @param metadata_key Character. Unique key for storing factor metadata
+#'
+#' @return The optimized data.frame with automatic type conversion
+#'
+#' @details
+#' Performs automatic type optimization:
+#' \itemize{
+#'   \item Detects columns that can be converted to numeric without data loss
+#'   \item Converts character columns to factors for compression
+#'   \item Preserves existing numeric, date, and logical columns
+#'   \item Saves factor level metadata for reconstruction
+#'   \item Writes compressed parquet file
+#' }
+#'
+#' @importFrom arrow write_parquet
+#' @importFrom data.table setDT
+#' @export
+compress_adm2 <- function(df, output_path, metadata_key) {
+  # Convert to data.table for efficient operations
+  setDT(df)
+
+  factor_metadata <- list()
+
+  # Process each column for type optimization
+  for (col_name in names(df)) {
+    col_data <- df[[col_name]]
+
+    # Skip if already numeric, date, or logical
+    if (is.numeric(col_data) || inherits(col_data, "Date") || is.logical(col_data)) {
+      next
+    }
+
+    # Convert character columns
+    if (is.character(col_data)) {
+      if (is_numeric_convertible(col_data, col_name)) {
+        # Convert to numeric if lossless
+        df[, (col_name) := as.numeric(col_data)]
+      } else {
+        # Use cardinality analysis to decide on factor conversion
+        unique_vals <- length(unique(col_data[!is.na(col_data)]))
+        total_vals <- length(col_data[!is.na(col_data)])
+        cardinality_ratio <- unique_vals / total_vals
+        
+        # Convert to factor if cardinality is low (good compression benefit)
+        # Keep as character if very high cardinality (factor overhead not worth it)
+        if (cardinality_ratio < 0.5 || unique_vals < 1000) {
+          factor_col <- as.factor(col_data)
+          df[, (col_name) := factor_col]
+          factor_metadata[[col_name]] <- levels(factor_col)
+        }
+        # If high cardinality, keep as character (no conversion)
+      }
+    }
+  }
+
+  # Save factor metadata
+  if (length(factor_metadata) > 0) {
+    save_factor_metadata(metadata_key, factor_metadata)
+  }
+
+  # Write as parquet file with better compression
+  arrow::write_parquet(df, output_path, compression = "gzip")
+
+  return(df)
+}
+
+
+#' Save factor metadata to package data folder
+#'
+#' @param metadata_key Character. Unique key for this dataset
+#' @param factor_metadata List. Factor level mappings
+#' @keywords internal
+save_factor_metadata <- function(metadata_key, factor_metadata) {
+  # Create data directory if it doesn't exist
+  data_dir <- "./data"
+  if (!dir.exists(data_dir)) {
+    dir.create(data_dir, recursive = TRUE)
+  }
+
+  metadata_file <- file.path(data_dir, "adm_factor_metadata.rds")
+
+  # Load existing metadata or create new
+  if (file.exists(metadata_file)) {
+    existing_metadata <- readRDS(metadata_file)
+  } else {
+    existing_metadata <- list()
+  }
+
+  # Add/update metadata for this key
+  existing_metadata[[metadata_key]] <- factor_metadata
+
+  # Save updated metadata
+  saveRDS(existing_metadata, metadata_file, compress = "xz")
 }
 
 
