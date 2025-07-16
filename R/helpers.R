@@ -162,12 +162,12 @@ get_cached_data <- function(name,
 #' @return data.frame with restored factor levels
 #' @keywords internal
 restore_factor_levels <- function(data, filename) {
-  # Try to load factor metadata
-  metadata_file <- system.file("data", "adm_factor_metadata.rds", package = "rmaADM")
+  # Try to load factor metadata from inst/extdata
+  metadata_file <- system.file("extdata", "adm_factor_metadata.rds", package = "rmaADM")
 
-  # If package metadata doesn't exist, check local data folder
+  # If package metadata doesn't exist, check local inst/extdata folder
   if (!file.exists(metadata_file) || metadata_file == "") {
-    metadata_file <- "./data/adm_factor_metadata.rds"
+    metadata_file <- "./inst/extdata/adm_factor_metadata.rds"
   }
 
   if (!file.exists(metadata_file)) {
@@ -1080,13 +1080,13 @@ compress_adm2 <- function(df, output_path, metadata_key) {
 #' @param factor_metadata List. Factor level mappings
 #' @keywords internal
 save_factor_metadata <- function(metadata_key, factor_metadata) {
-  # Create data directory if it doesn't exist
-  data_dir <- "./data"
-  if (!dir.exists(data_dir)) {
-    dir.create(data_dir, recursive = TRUE)
+  # Create inst/extdata directory if it doesn't exist
+  extdata_dir <- "./inst/extdata"
+  if (!dir.exists(extdata_dir)) {
+    dir.create(extdata_dir, recursive = TRUE)
   }
 
-  metadata_file <- file.path(data_dir, "adm_factor_metadata.rds")
+  metadata_file <- file.path(extdata_dir, "adm_factor_metadata.rds")
 
   # Load existing metadata or create new
   if (file.exists(metadata_file)) {

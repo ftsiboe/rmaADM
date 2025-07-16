@@ -2,7 +2,7 @@
 % Please edit documentation in R/helpers.R
 \name{clear_rmaADM_cache}
 \alias{clear_rmaADM_cache}
-\title{Clear the package cache of downloaded RDS files}
+\title{Clear the package cache of downloaded data files}
 \usage{
 clear_rmaADM_cache()
 }
@@ -12,12 +12,12 @@ directory was cleared.
 }
 \description{
 Deletes the entire cache directory used by the \strong{rmaADM} package to store
-downloaded \*.rds files. Useful if you need to force re-download of data,
+downloaded data files. Useful if you need to force re-download of data,
 or free up disk space.
 }
 \examples{
 \dontrun{
-# Remove all cached RDS files so they will be re-downloaded on next use
+# Remove all cached data files so they will be re-downloaded on next use
 clear_rmaADM_cache()
 }
 }

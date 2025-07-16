@@ -10,8 +10,7 @@ download_adm2(
   dir = "./data-raw",
   dataset_codes = c("A01090", "A00070"),
   keep_source_files = FALSE,
-  overwrite = FALSE,
-  compress = TRUE
+  overwrite = FALSE
 )
 }
 \arguments{
@@ -26,11 +25,9 @@ download_adm2(
 \item{keep_source_files}{Logical. If \code{FALSE}, removes downloaded \code{.zip} archives after extraction.}
 
 \item{overwrite}{Logical. If \code{TRUE}, re-downloads and re-processes files even if the existing data appears up to date.}
-
-\item{compress}{Logical. If \code{TRUE}, applies data compression using \code{compress_adm()} function during processing. Defaults to \code{TRUE}.}
 }
 \value{
-Invisibly returns \code{NULL}. Processed \code{.rds} files are written to disk in the specified directory.
+Invisibly returns \code{NULL}. Processed \code{.parquet} files are written to disk in the specified directory.
 }
 \description{
 Downloads ADM data files for the specified years from the USDA RMA actuarial data master repository,
@@ -40,10 +37,9 @@ based on matching codes. Source archives can also be deleted after extraction.
 }
 \details{
 The function reads each \code{.txt} file in chunks (default 1 million rows at a time),
-applies a \code{clean_data()} function to each chunk (assumed to be defined elsewhere),
-and writes the results to compressed \code{.rds} files using \code{xz} compression.
-Files are only re-downloaded if the remote data is newer than the latest local file,
-unless \code{overwrite = TRUE}.
+applies automatic type optimization and factor conversion, then writes the results
+to compressed \code{.parquet} files. Files are only re-downloaded if the remote data
+is newer than the latest local file, unless \code{overwrite = TRUE}.
 }
 \note{
 Files are read using \code{data.table::fread()} with all columns as character to reduce type inference overhead.

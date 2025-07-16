@@ -26,12 +26,14 @@ This function serves as the main interface for accessing processed ADM data. It:
 \itemize{
 \item Locates the appropriate data file based on year and dataset
 \item Loads data from local cache or downloads from GitHub releases if needed
+\item Handles both legacy RDS and new parquet formats automatically
+\item Restores factor levels for parquet files using stored metadata
 \item Handles case-insensitive dataset matching
 \item Automatically manages data download and caching
 }
 
-The function expects that data has been previously processed and uploaded to GitHub
-releases using the \code{\link{download_adm2}} workflow.
+The function works with data processed using the \code{\link{download_adm2}} workflow,
+which outputs optimized parquet files with automatic type detection.
 }
 \examples{
 \dontrun{
