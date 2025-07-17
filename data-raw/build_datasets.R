@@ -4,7 +4,7 @@ devtools::load_all()
 
 # download the ADM files to data-raw
 download_adm2(
-  years = 2015:2025,
+  years = 2011:2025,
   dataset_codes = c("A01010", # base rate
                     "A01040", # coverage level differential
                     "A00030", # insurance offer
@@ -17,7 +17,13 @@ download_adm2(
                     "A01135", # Area Rate"
                     "A01005", # AreaRiskRate
                     "A00070", # subsidy percent
-                    "A00810"  # price
+                    "A00810",  # price
+
+                    # these havent been run yet
+                    "A01090", # unit discount
+                    "A00500", # organic practice,
+                    "A00510", # practice
+                    "A00490" # irrigation practice
   ),
   overwrite = TRUE
 )
@@ -49,12 +55,12 @@ piggyback::pb_upload(
 build_county_yield_history(years = 2011:2025)
 
 #upload  .rds files into that release
-rds_files <- list.files("data-raw", "county_yield_history.rds$",
+files <- list.files("data-raw", "county_yield_history.parquet$",
                         full.names = TRUE, recursive = TRUE)
 
 
 piggyback::pb_upload(
-  rds_files,
+  files,
   repo = "dylan-turner25/rmaADM",
   tag  = "v0.2.0",
   overwrite = T
