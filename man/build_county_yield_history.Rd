@@ -9,7 +9,7 @@ build_county_yield_history(years, export_dir = "./data-raw", by_year = TRUE)
 \arguments{
 \item{years}{\link{numeric} Vector of years to process}
 
-\item{export_dir}{\link{character} Directory path where the output RDS file will be saved.
+\item{export_dir}{\link{character} Directory path where the output parquet file will be saved.
 Defaults to "./data-raw"}
 
 \item{by_year}{\link{logical} Currently unused parameter (kept for compatibility)}
@@ -24,7 +24,8 @@ the mean \code{yield_amount}, \code{trended_yield_amount}, and
 Processes insurance offer and historical yield trend data for multiple years,
 merges them on the historical trend IDs, aggregates by mean within each year,
 then across all years selects the earliest available trend per FCIP insurance
-pool and computes average yields. Saves the result as an RDS file.
+pool and computes average yields. Saves the result as a parquet file with
+automatic type conversion and optimization.
 }
 \details{
 \itemize{
@@ -32,6 +33,8 @@ pool and computes average yields. Saves the result as an RDS file.
 yields may differ across different releases of that table.
 \item This function uses information across all available tables to
 construct a single, reconciled county yield history.
-\item The output is automatically saved as an RDS file in the specified directory.
+\item The output is automatically saved as a parquet file with automatic type
+conversion and optimization in the specified directory.
+\item Applies the same type conversion logic as \code{download_adm2} for consistency.
 }
 }

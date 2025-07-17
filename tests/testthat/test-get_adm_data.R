@@ -114,3 +114,27 @@ test_that("datasets have continuous year availability", {
     }
   }
 })
+
+test_that("ADM processing validates known subsidy rates for 2011", {
+  skip_on_cran()
+  skip_if_offline()
+  
+  # Ultimate unit test for ADM processing - check known subsidy rates
+  df <- get_adm_data(year = 2011, dataset = "A00070_SubsidyPercent")
+  
+  # Ensure data.table operations work
+  data.table::setDT(df)
+  
+  # Test known subsidy rates for specific combinations
+  expect_true(all(
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.50 & coverage_type_code %in% "C")][["premium_subsidy_percent"]][1] == 1.00,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.50 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.67,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.55 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.64,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.60 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.64,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.65 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.59,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.70 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.59,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.75 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.55,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.80 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.48,
+    df[(unit_structure_code %in% "BU" & insurance_plan_code %in% 1 & coverage_level_percent %in% 0.85 & coverage_type_code %in% "A")][["premium_subsidy_percent"]][1] == 0.38
+  ), info = "Known subsidy rates for 2011 should match expected values")
+})

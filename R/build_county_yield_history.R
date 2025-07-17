@@ -103,10 +103,11 @@ reconcile_yield_history <- function(df) {
 #' Processes insurance offer and historical yield trend data for multiple years,
 #' merges them on the historical trend IDs, aggregates by mean within each year,
 #' then across all years selects the earliest available trend per FCIP insurance
-#' pool and computes average yields. Saves the result as an RDS file.
+#' pool and computes average yields. Saves the result as a parquet file with
+#' automatic type conversion and optimization.
 #'
 #' @param years [numeric] Vector of years to process
-#' @param export_dir [character] Directory path where the output RDS file will be saved.
+#' @param export_dir [character] Directory path where the output parquet file will be saved.
 #'   Defaults to "./data-raw"
 #' @param by_year [logical] Currently unused parameter (kept for compatibility)
 #'
@@ -121,7 +122,9 @@ reconcile_yield_history <- function(df) {
 #'   yields may differ across different releases of that table.
 #' - This function uses information across all available tables to
 #'   construct a single, reconciled county yield history.
-#' - The output is automatically saved as an RDS file in the specified directory.
+#' - The output is automatically saved as a parquet file with automatic type 
+#'   conversion and optimization in the specified directory.
+#' - Applies the same type conversion logic as `download_adm2` for consistency.
 #'
 #' @importFrom data.table rbindlist
 #' @importFrom dplyr inner_join
@@ -136,9 +139,17 @@ build_county_yield_history <- function(years, export_dir = "./data-raw", by_year
 
   df <- reconcile_yield_history(df)
 
+  # Apply type conversion logic from download_adm2
+  data.table::setDT(df)
+  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
+    .SD, function(x) as.numeric(as.character(x))
+  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
 
-  file_name <- paste0(export_dir, "/county_yield_history.rds")
-  saveRDS(df, file = file_name)
+  # Generate metadata key for factor metadata
+  metadata_key <- paste0("county_yield_history_", paste(range(years), collapse = "_"))
 
+  # Save as parquet file using compress_adm2 function
+  file_name <- paste0(export_dir, "/county_yield_history.parquet")
+  compress_adm2(df, file_name, metadata_key)
 
 }
