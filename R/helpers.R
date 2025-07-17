@@ -903,22 +903,9 @@ download_adm2 <- function(
         final_dt <- readRDS(temp_files[1])
         file.remove(temp_files[1])
 
-        # Convert first chunk to numeric
-        setDT(final_dt)
-        final_dt[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(final_dt))) := lapply(
-          .SD, function(x) as.numeric(as.character(x))
-        ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(final_dt))]
-
         # Stream remaining chunks
         for (i in 2:length(temp_files)) {
           chunk_dt <- readRDS(temp_files[i])
-
-          # Convert chunk to numeric before rbinding
-          setDT(chunk_dt)
-          chunk_dt[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(chunk_dt))) := lapply(
-            .SD, function(x) as.numeric(as.character(x))
-          ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(chunk_dt))]
-
           final_dt <- rbind(final_dt, chunk_dt)
           rm(chunk_dt)
           file.remove(temp_files[i])

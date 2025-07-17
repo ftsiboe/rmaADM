@@ -139,16 +139,10 @@ build_county_yield_history <- function(years, export_dir = "./data-raw", by_year
 
   df <- reconcile_yield_history(df)
 
-  # Apply type conversion logic from download_adm2
-  data.table::setDT(df)
-  df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
-    .SD, function(x) as.numeric(as.character(x))
-  ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
-
   # Generate metadata key for factor metadata
   metadata_key <- paste0("county_yield_history_", paste(range(years), collapse = "_"))
 
-  # Save as parquet file using compress_adm2 function
+  # Save as parquet file using compress_adm2 function (handles type conversion automatically)
   file_name <- paste0(export_dir, "/county_yield_history.parquet")
   compress_adm2(df, file_name, metadata_key)
 
