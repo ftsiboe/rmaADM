@@ -51,7 +51,7 @@ get_adm_data <- function(year = NULL, dataset = "baserate", show_progress = T){
     for(i in seq_along(year)){
       single_year <- year[i]
       file <- locate_data_asset(single_year, dataset)
-      data_list[[i]] <- get_cached_data(file)
+      data_list[[i]] <- get_cached_data(file, show_progress = show_progress)
     }
     # Row-bind all data frames
     data <- dplyr::bind_rows(data_list)
