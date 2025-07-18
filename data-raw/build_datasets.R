@@ -25,7 +25,8 @@ download_adm2(
                     "A00510", # practice
                     "A00490" # irrigation practice
   ),
-  overwrite = TRUE
+  overwrite = FALSE,
+  keep_source_files = TRUE
 )
 
 
