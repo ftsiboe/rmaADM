@@ -69,13 +69,15 @@ locate_data_asset <- function(year, dataset){
 #' @title Download a data file from GitHub Releases via piggyback
 #' @param name   The basename of the .rds file, e.g. "foo.rds"
 #' @param tag    Which release tag to download from (default: latest)
+#' @param show_progress Logical value indicating whether a progress download bar should be displayed. Defaults to `True`.
 #' @return       The local path to the downloaded file
 #' @keywords internal
 #' @noRd
 #' @import piggyback
 get_cached_rds <- function(name,
                            repo = "dylan-turner25/rmaADM",
-                           tag  = NULL) {
+                           tag  = NULL,
+                           show_progress = T) {
   dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
   if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
 
@@ -86,7 +88,8 @@ get_cached_rds <- function(name,
       file     = name,
       repo     = repo,
       tag      = tag,
-      dest = dest_dir
+      dest = dest_dir,
+      show_progress = show_progress
     )
   }
   readRDS(dest_file)
@@ -101,7 +104,8 @@ get_cached_rds <- function(name,
 #' @param name Character. The basename of the data file (e.g., "foo.rds" or "bar.parquet")
 #' @param repo Character. GitHub repository in format "owner/repo"
 #' @param tag Character. Which release tag to download from (default: latest)
-#'
+#' @param show_progress Logical value indicating whether a progress download bar should be displayed. Defaults to `True`.
+
 #' @return A data.frame containing the loaded data with properly restored factor levels
 #'
 #' @details
@@ -119,7 +123,8 @@ get_cached_rds <- function(name,
 #' @keywords internal
 get_cached_data <- function(name,
                            repo = "dylan-turner25/rmaADM",
-                           tag  = NULL) {
+                           tag  = NULL,
+                           show_progress = T) {
   dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
   if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
 
@@ -131,7 +136,8 @@ get_cached_data <- function(name,
       file = name,
       repo = repo,
       tag  = tag,
-      dest = dest_dir
+      dest = dest_dir,
+      show_progress = show_progress
     )
   }
 
@@ -735,7 +741,7 @@ check_file_status <- function(year_dir, dataset_codes, overwrite = FALSE) {
 #' @details
 #' The function reads each `.txt` file in chunks (default 1 million rows at a time),
 #' applies automatic type optimization and factor conversion, then writes the results
-#' to compressed `.parquet` files. Files are only re-downloaded if the remote data 
+#' to compressed `.parquet` files. Files are only re-downloaded if the remote data
 #' is newer than the latest local file, unless `overwrite = TRUE`.
 #'
 #' @note Files are read using `data.table::fread()` with all columns as character to reduce type inference overhead.
@@ -917,7 +923,7 @@ download_adm2 <- function(
         table_code <- substr(basename(f), 6, 11)
         year <- as.numeric(gsub(".*/(\\d{4})/.*", "\\1", f))
         metadata_key <- paste0(table_code, "_", year)
-        
+
         compress_adm2(final_dt, output_file, metadata_key)
         rm(final_dt)
       }
@@ -942,7 +948,7 @@ download_adm2 <- function(
 is_numeric_convertible <- function(x, col_name = NULL) {
   if (is.numeric(x)) return(TRUE)
   if (!is.character(x)) return(FALSE)
-  
+
   # Domain-specific rules for ADM data - keep these as character/factors
   if (!is.null(col_name)) {
     adm_code_patterns <- c(
@@ -950,7 +956,7 @@ is_numeric_convertible <- function(x, col_name = NULL) {
       "^type_code", "^class_code", "^sub_class", "^record_type",
       "^program_type", "^unit_structure", "^insurance_plan_code"
     )
-    
+
     if (any(grepl(paste(adm_code_patterns, collapse = "|"), col_name, ignore.case = TRUE))) {
       return(FALSE)
     }
@@ -958,18 +964,18 @@ is_numeric_convertible <- function(x, col_name = NULL) {
 
   # Remove leading/trailing whitespace
   x_clean <- trimws(x)
-  
+
   # Additional heuristics to avoid converting codes to numeric
   unique_vals <- unique(x_clean[!is.na(x_clean) & x_clean != ""])
-  
+
   # If values look like zero-padded codes, keep as character
   if (any(grepl("^0[0-9]+$", unique_vals))) {
     return(FALSE)
   }
-  
+
   # If high proportion of values are whole numbers that could be codes
   # and cardinality is relatively low, likely categorical
-  if (length(unique_vals) / length(x_clean) < 0.1 && 
+  if (length(unique_vals) / length(x_clean) < 0.1 &&
       all(grepl("^[0-9]+$", unique_vals[1:min(10, length(unique_vals))]))) {
     return(FALSE)
   }
@@ -989,7 +995,7 @@ is_numeric_convertible <- function(x, col_name = NULL) {
 #' Optimize data types and save as parquet format
 #'
 #' Automatically detects numeric columns, converts character columns to factors,
-#' and saves as compressed parquet files for optimal storage efficiency while 
+#' and saves as compressed parquet files for optimal storage efficiency while
 #' preserving all data.
 #'
 #' @param df A data.frame to optimize and save
@@ -1036,7 +1042,7 @@ compress_adm2 <- function(df, output_path, metadata_key) {
         unique_vals <- length(unique(col_data[!is.na(col_data)]))
         total_vals <- length(col_data[!is.na(col_data)])
         cardinality_ratio <- unique_vals / total_vals
-        
+
         # Convert to factor if cardinality is low (good compression benefit)
         # Keep as character if very high cardinality (factor overhead not worth it)
         if (cardinality_ratio < 0.5 || unique_vals < 1000) {

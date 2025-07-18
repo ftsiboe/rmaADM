@@ -9,7 +9,7 @@
 #' @param dataset Character. The dataset type to retrieve (e.g., "baserate", "premium",
 #'   "subsidy"). Defaults to "baserate". Dataset names are case-insensitive and
 #'   underscores are automatically handled.
-#'
+#' @param show_progress Logical value indicating whether a progress download bar should be displayed. Defaults to `True`.
 #' @return A data.frame containing the requested ADM data.
 #'
 #' @details
@@ -43,7 +43,7 @@
 #' \code{\link{list_data_assets}} for listing all available data assets
 #'
 #' @export
-get_adm_data <- function(year = NULL, dataset = "baserate"){
+get_adm_data <- function(year = NULL, dataset = "baserate", show_progress = T){
 
   # Handle vector of years by looping and row-binding
   if(!is.null(year) && length(year) > 1){
@@ -60,7 +60,7 @@ get_adm_data <- function(year = NULL, dataset = "baserate"){
 
   # Original logic for single year or NULL
   file  <- locate_data_asset(year, dataset)
-  data <- get_cached_data(file)
+  data <- get_cached_data(file, show_progress = show_progress)
   return(data)
 }
 

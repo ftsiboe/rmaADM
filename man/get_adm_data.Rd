@@ -4,7 +4,7 @@
 \alias{get_adm_data}
 \title{Get USDA RMA Actuarial Data Master (ADM) data}
 \usage{
-get_adm_data(year = NULL, dataset = "baserate")
+get_adm_data(year = NULL, dataset = "baserate", show_progress = T)
 }
 \arguments{
 \item{year}{Numeric or vector. The year(s) of ADM data to retrieve. Can be a single year or vector of years. When multiple years are provided, data is downloaded for each year and row-bound into a single data frame. Defaults to NULL.}
@@ -12,6 +12,8 @@ get_adm_data(year = NULL, dataset = "baserate")
 \item{dataset}{Character. The dataset type to retrieve (e.g., "baserate", "premium",
 "subsidy"). Defaults to "baserate". Dataset names are case-insensitive and
 underscores are automatically handled.}
+
+\item{show_progress}{Logical value indicating whether a progress download bar should be displayed. Defaults to \code{True}.}
 }
 \value{
 A data.frame containing the requested ADM data.

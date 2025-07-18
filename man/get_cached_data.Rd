@@ -4,7 +4,12 @@
 \alias{get_cached_data}
 \title{Download and read data files from GitHub Releases (supports RDS and parquet)}
 \usage{
-get_cached_data(name, repo = "dylan-turner25/rmaADM", tag = NULL)
+get_cached_data(
+  name,
+  repo = "dylan-turner25/rmaADM",
+  tag = NULL,
+  show_progress = T
+)
 }
 \arguments{
 \item{name}{Character. The basename of the data file (e.g., "foo.rds" or "bar.parquet")}
@@ -12,6 +17,8 @@ get_cached_data(name, repo = "dylan-turner25/rmaADM", tag = NULL)
 \item{repo}{Character. GitHub repository in format "owner/repo"}
 
 \item{tag}{Character. Which release tag to download from (default: latest)}
+
+\item{show_progress}{Logical value indicating whether a progress download bar should be displayed. Defaults to \code{True}.}
 }
 \value{
 A data.frame containing the loaded data with properly restored factor levels

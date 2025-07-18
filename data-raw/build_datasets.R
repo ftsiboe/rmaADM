@@ -4,7 +4,7 @@ devtools::load_all()
 
 # download the ADM files to data-raw
 download_adm2(
-  years = 2011:2025,
+  years = 2011:2026,
   dataset_codes = c("A01010", # base rate
                     "A01040", # coverage level differential
                     "A00030", # insurance offer
