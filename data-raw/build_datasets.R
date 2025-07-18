@@ -19,15 +19,21 @@ download_adm2(
                     "A00070", # subsidy percent
                     "A00810",  # price
 
-                    # these havent been run yet
+                    # helper datasets
                     "A01090", # unit discount
                     "A00500", # organic practice,
                     "A00510", # practice
-                    "A00490" # irrigation practice
+                    "A00490", # irrigation practice
+                    "A00520", # state
+                    "A00440", # county
+                    "A00420", # commodity
+                    "A00430" # commodity type
   ),
   overwrite = FALSE,
   keep_source_files = TRUE
 )
+
+
 
 
 # upload cleaned files as a data release
