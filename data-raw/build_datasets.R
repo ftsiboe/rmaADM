@@ -27,7 +27,8 @@ download_adm2(
                     "A00520", # state
                     "A00440", # county
                     "A00420", # commodity
-                    "A00430" # commodity type
+                    "A00430", # commodity type
+                    "A00540"  # Type"
   ),
   overwrite = FALSE,
   keep_source_files = TRUE
