@@ -1060,6 +1060,15 @@ compress_adm2 <- function(df, output_path, metadata_key) {
     save_factor_metadata(metadata_key, factor_metadata)
   }
 
+  # Final UTF-8 sanitization before writing parquet
+  char_cols <- sapply(df, is.character)
+  for(col in names(df)[char_cols]) {
+    # First try UTF-8 cleaning, then fall back to ASCII if needed
+    df[[col]] <- iconv(df[[col]], from = "", to = "UTF-8", sub = "")
+    # If still problematic, convert to ASCII
+    df[[col]] <- iconv(df[[col]], to = "ASCII//TRANSLIT", sub = "")
+  }
+
   # Write as parquet file with better compression
   arrow::write_parquet(df, output_path, compression = "gzip")
 
@@ -1111,6 +1120,9 @@ clean_file_name <- function(file_name, file_type_out = "rds"){
 
   # file suffix
   suffix <- parts[length(parts)]
+  
+  # Sanitize the suffix to ensure valid UTF-8 encoding
+  suffix <- iconv(suffix, from = "UTF-8", to = "UTF-8", sub = "")
 
   # remove any instance of alphabetic character followed by 5 numbers
   #suffix <- gsub("[A-Za-z]\\d{5}", "", suffix)
@@ -1162,6 +1174,15 @@ clean_data <- function(df){
 
   # clean column names
   df <- janitor::clean_names(df)
+  
+  # Sanitize all character data to ensure valid UTF-8 encoding
+  char_cols <- sapply(df, is.character)
+  for(col in names(df)[char_cols]) {
+    # First try UTF-8 cleaning, then fall back to ASCII if needed
+    df[[col]] <- iconv(df[[col]], from = "", to = "UTF-8", sub = "")
+    # If still problematic, convert to ASCII
+    df[[col]] <- iconv(df[[col]], to = "ASCII//TRANSLIT", sub = "")
+  }
 
   # enforce data types
   df <- suppressMessages(readr::type_convert(df))

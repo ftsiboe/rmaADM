@@ -28,7 +28,8 @@ download_adm2(
                     "A00440", # county
                     "A00420", # commodity
                     "A00430", # commodity type
-                    "A00540"  # Type"
+                    "A00540",  # Type"
+                    "A00460" # Insurance plan
   ),
   overwrite = FALSE,
   keep_source_files = TRUE
