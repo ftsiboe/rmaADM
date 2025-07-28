@@ -94,21 +94,45 @@ all_data <- rmaADM:::list_data_assets()
 
 ## Available Datasets
 
-The package provides access to multiple ADM datasets across years 2011-2025:
+The package provides access to multiple ADM datasets across years 2011-2026. To see all available datasets programmatically, use:
 
-- **BaseRate (A01010)**: Base rates for crop insurance
-- **Price (A00810)**: Commodity prices  
-- **SubsidyPercent (A00070)**: Premium subsidy percentages
-- **InsuranceOffer (A00030)**: Insurance offer information
-- **Beta (A01020)**: Beta values for rate calculations
-- **ComboRevenueFactor (A01030)**: Combined revenue factors
-- **CoverageLevelDifferential (A01040)**: Coverage level differentials
+```{r list-assets, eval=FALSE}
+# List all available data assets
+all_data <- rmaADM:::list_data_assets()
+```
+
+### Core Actuarial Datasets
+
+- **BaseRate (A01010)**: Base rates for crop insurance premiums
+- **Price (A00810)**: Commodity prices (established, projected, harvest)
+- **SubsidyPercent (A00070)**: Premium subsidy percentages by coverage level
+- **InsuranceOffer (A00030)**: Insurance offer information and coverage details
+- **Beta (A01020)**: Beta risk adjustment factors for rate calculations
+- **ComboRevenueFactor (A01030)**: Combined revenue factors for revenue insurance
+- **CoverageLevelDifferential (A01040)**: Coverage level rate differentials
 - **HistoricalRevenueCapping (A01110)**: Historical revenue capping data
 - **HistoricalYieldTrend (A01115)**: Historical yield trend data (2016+)
 - **AreaCoverageLevel (A01130)**: Area coverage levels (2017+)
-- **AreaRate (A01135)**: Area rates (2017+)
-- **Date (A00200)**: Date information
-- **county_yield_history**: A dataset combining HistoricalYieldTrend and InsuranceOffer
+- **AreaRate (A01135)**: Area rates for county-level coverage (2017+)
+- **AreaRiskRate (A01005)**: Area risk rates (2011-2016)
+- **UnitDiscount (A01090)**: Unit discount factors
+
+### Reference Datasets
+
+- **Date (A00200)**: Important dates for crop insurance (sales closing, etc.)
+- **Commodity (A00420)**: Commodity codes and descriptions
+- **CommodityType (A00430)**: Commodity type classifications
+- **County (A00440)**: County codes and names
+- **InsurancePlan (A00460)**: Insurance plan codes and descriptions
+- **IrrigationPractice (A00490)**: Irrigation practice codes
+- **OrganicPractice (A00500)**: Organic practice designations
+- **Practice (A00510)**: Practice codes and descriptions
+- **State (A00520)**: State codes and names
+- **Type (A00540)**: Crop type codes and descriptions
+
+### Constructed Datasets
+
+- **county_yield_history**: A processed dataset combining HistoricalYieldTrend and InsuranceOffer data for county-level yield analysis
 
 
 ## Caching Behavior
