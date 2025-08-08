@@ -18,6 +18,8 @@ download_adm2(
                     "A01005", # AreaRiskRate
                     "A00070", # subsidy percent
                     "A00810",  # price
+                    "A01100", # yield and T-yield
+
 
                     # helper datasets
                     "A01090", # unit discount

@@ -15,12 +15,12 @@ Imports:
   cli,
   readr,
   janitor,
-  purrr,
   data.table,
   gh,
   piggyback,
   magrittr,
-  arrow
+  arrow,
+  curl (>= 6.4.0)
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

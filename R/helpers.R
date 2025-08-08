@@ -9,9 +9,9 @@ if(getRversion() >= "2.15.1") {
 
 #' @importFrom magrittr %>%
 
-#' Locate data asset files by year and dataset
-#'
-#' Internal helper function that searches for available data asset files that match the
+#' @title Locate data asset files by year and dataset
+#' @name locate_data_asset
+#' @description Internal helper function that searches for available data asset files that match the
 #' specified year(s) and dataset. The function performs case-insensitive matching and
 #' removes underscores from dataset names for flexible matching.
 #'
@@ -64,36 +64,6 @@ locate_data_asset <- function(year, dataset){
 
 }
 
-
-
-#' @title Download a data file from GitHub Releases via piggyback
-#' @param name   The basename of the .rds file, e.g. "foo.rds"
-#' @param tag    Which release tag to download from (default: latest)
-#' @param show_progress Logical value indicating whether a progress download bar should be displayed. Defaults to `True`.
-#' @return       The local path to the downloaded file
-#' @keywords internal
-#' @noRd
-#' @import piggyback
-get_cached_rds <- function(name,
-                           repo = "dylan-turner25/rmaADM",
-                           tag  = NULL,
-                           show_progress = T) {
-  dest_dir <- tools::R_user_dir("rmaADM", which = "cache")
-  if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
-
-  dest_file <- file.path(dest_dir, name)
-  if (!file.exists(dest_file)) {
-    # download from the Release
-    piggyback::pb_download(
-      file     = name,
-      repo     = repo,
-      tag      = tag,
-      dest = dest_dir,
-      show_progress = show_progress
-    )
-  }
-  readRDS(dest_file)
-}
 
 
 #' Download and read data files from GitHub Releases (supports RDS and parquet)
@@ -273,140 +243,6 @@ list_data_assets <- function(){
   return(df$name)
 }
 
-#' Compress ADM files by maintaining only the necessary level of granularity
-#'
-#' @param table_code An adm record code to identify the target record.
-#' @param df a data frame corresponding to the data represented by the table_code
-#' @param dir Path to where downloaded adm files are stored.
-#' @return A data frame of aggregated parameter values.
-#' @import data.table
-#' @importFrom readr read_delim
-#' @export
-compress_adm <- function(table_code, df, dir) {
-
-
-
-
-  ## Determine parameter list and aggregation keys
-  aggregation_point <- NULL
-  parameter_list <- NULL
-
-  # Base Rate
-  if (table_code == "A01010") {
-    parameter_list <- c(
-      "reference_amount", "reference_rate", "exponent_value",
-      "fixed_rate", "prior_year_reference_amount", "prior_year_reference_rate",
-      "prior_year_exponent_value", "prior_year_fixed_rate",
-      "base_rate", "prior_year_base_rate"
-    )
-    aggregation_point <- FCIP_INSURANCE_POOL
-  }
-
-  # Coverage Level Differential
-  if (table_code == "A01040") {
-    parameter_list <- c(
-      "rate_differential_factor", "unit_residual_factor",
-      "enterprise_unit_residual_factor", "whole_farm_unit_residual_factor",
-      "prior_year_rate_differential_factor", "prior_year_unit_residual_factor",
-      "prior_year_enterprise_unit_residual_factor", "prior_year_whole_farm_unit_residual_factor",
-      "cat_residual_factor", "prior_cat_residual_factor"
-    )
-    aggregation_point <- c(FCIP_INSURANCE_POOL, FCIP_INSURANCE_ELECTION[!FCIP_INSURANCE_ELECTION %in% "unit_structure_code"])
-  }
-
-
-  # Combo Revenue Factor
-  if (table_code == "A01030") {
-    parameter_list <- c("mean_quantity", "standard_deviation_quantity")
-    aggregation_point <- c("commodity_code", "state_code", "lookup_rate")
-  }
-
-  # Historical Revenue Capping
-  if (table_code == "A01110") {
-    parameter_list <- c(
-      "capping_reference_yield", "capping_reference_rate", "capping_exponent_value", "capping_fixed_rate",
-      "prior_capping_reference_yield", "prior_capping_reference_rate", "prior_capping_exponent_value", "prior_capping_fixed_rate",
-      paste0("beta_", 0:14, "_factor")
-    )
-    aggregation_point <- c(FCIP_INSURANCE_POOL, "capping_year")
-  }
-
-  # Premium Subsidy Percent
-  if (table_code == "A00070") {
-    parameter_list <- c("subsidy_percent")
-    aggregation_point <- c(FCIP_INSURANCE_ELECTION,"reinsurance_year")
-  }
-
-  # Price
-  if (table_code == "A00810") {
-    parameter_list <- c("established_price", "projected_price", "harvest_price","price_volatility_factor")
-    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
-  }
-
-  # Dates
-  if(table_code == "A00200"){
-    parameter_list <-  names(df)[grepl("_date", names(df))]
-    aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
-  }
-
-  # Price Volatility Factor
-  # if (table_code == "A00810_PVF") {
-  #   parameter_list <- c("price_volatility_factor")
-  #   aggregation_point <- c(FCIP_INSURANCE_POOL, "insurance_plan_code")
-  # }
-
-  # ## Read RDS and coerce to numeric
-  # setDT(df)
-  #
-  # df[, c(intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))) := lapply(
-  #   .SD, function(x) as.numeric(as.character(x))
-  # ), .SDcols = intersect(FCIP_FORCE_NUMERIC_KEYS, names(df))]
-
-  ## Filter on reference/record codes if present
-
-  # Keep where reference_amount_code is available and equals "Y" (Yield)
-  if ("reference_amount_code" %in% names(df) && length(unique(df$reference_amount_code)) > 1) {
-    df <- df[reference_amount_code == "Y"]
-  }
-
-  # Keep where record_category_code is available and equals 1 (Base Rate)
-  if ("record_category_code" %in% names(df) && length(unique(df$record_category_code)) > 1) {
-    df <- df[record_category_code == 1]
-  }
-
-  # if "reinsurance_year" is in names(df) and "commodity_year" is not present, rename to commodity_year
-  if("reinsurance_year" %in% names(df) && !"commodity_year" %in% names(df)){
-    setnames(df, "reinsurance_year", "commodity_year")
-  }
-
-  ## Special-case reshaping
-
-  if (table_code == "A01030") {
-    df <- df[, lookup_rate := base_rate
-    ][, unique(.SD), .SDcols = intersect(
-      c("commodity_year", aggregation_point, parameter_list), names(df)
-    )]
-  }
-
-  if (table_code == "A01110") {
-    df <- df[, unique(.SD), .SDcols = intersect(
-      c("commodity_year", aggregation_point, parameter_list), names(df)
-    )]
-  }
-
-  # aggregate if an aggregation point and parameter list are defined
-  if( !is.null(aggregation_point) & !is.null(parameter_list)){
-    # Aggregate parameters by taking the mean
-    df <- df[, lapply(.SD, function(x) mean(x, na.rm = TRUE)),
-             by = c(names(df)[names(df) %in% c("commodity_year",
-                                               aggregation_point,
-                                               "insurance_plan_recode",
-                                               "unit_structure_recode")]),
-             .SDcols = parameter_list]
-  }
-
-  return(df)
-}
 
 
 #' Locate the download link for the actuarial data master
@@ -513,156 +349,6 @@ locate_download_link <- function(year = 2012,
 }
 
 
-
-#' Download the adm files for a given year
-#'
-#' This function downloads the raw adm files, applies some minor cleaning operations,
-#' and converts them to .rds format for better compression.
-#'
-#' @param years the years of the actuarial data master to download
-#' @param adm_url the url where the adm FTP site is
-#' @param dir the directory to save the files to
-#' @param helpers_only if TRUE, only keeps the helper files (i.e. files smaller than 1 mb)
-#' @param helpers_size_threshold If `helpers_only` is `TRUE`, `helpers_size_threshold` indicates the size (in mb) above which data sets are kept. I.e. anything below `helpers_size_threshold` is assumed to be a helper dataset.
-#' @param keep_source_files if TRUE, keeps the original zip files in the year directory. If FALSE, they will be deleted.
-#' @returns the data and layout files for the given year
-#' @importFrom utils download.file unzip
-#' @importFrom readr read_delim
-#' @import cli
-#'
-#' @examples \dontrun{download_adm(year = 2012)}
-download_adm <- function(years = 2012,
-                         adm_url = "https://pubfs-rma.fpac.usda.gov/pub/References/actuarial_data_master/",
-                         dir = "./data-raw",
-                         helpers_only = TRUE,
-                         helpers_size_threshold = 5,
-                         keep_source_files = FALSE){
-  # if dir directory doesn't exist, create it
-  if(!dir.exists(dir)) {
-    dir.create(dir)
-  }
-
-
-  # loop over each year
-  for(year in years){
-
-    # create a year directory if it doesn't already exist
-    if(!dir.exists(paste0(dir,"/",year))) {
-      dir.create(paste0(dir,"/",year))
-    }
-
-
-    # check if there is already a file in the dir
-    if (dir.exists(paste0(dir,"/",year))) {
-      # get the list of files in the directory
-      files <- list.files(paste0(dir,"/",year), full.names = TRUE)
-
-      # if there are no files, set last_modified to NULL
-      if (length(files) == 0) {
-        last_modified <- NULL
-      } else {
-        # get the most recent file in the directory
-        most_recent_file <- files[which.max(file.info(files)$mtime)]
-
-        # get the time when the most recent file was last modified
-        last_modified <- file.info(most_recent_file)$mtime
-      }
-    }
-
-    # locate the urls for the data and adm
-    urls <- locate_download_link(year = year, adm_url = adm_url)
-
-    # check if the update date is greater than the last modified date
-    skip = F
-    if (!is.null(last_modified) && urls$update_date < last_modified) {
-      cli::cli_alert_info(paste0("The data for ",year," is already up to date. Skipping download."))
-      skip = T
-    }
-
-    # if skip = F, proceed with downloading the data
-    if(skip == F){
-
-    # download the data
-    utils::download.file(urls[['data']],
-                  destfile=paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
-                  mode="wb")
-
-    # extract the data zip files
-    utils::unzip(paste0(dir,"/",year,"/adm_ytd_",year,".zip"),
-          exdir = paste0(dir,"/",year))
-
-    # check if the layout url exists (typically doesn't prior to 2011)
-    if("layout" %in% names(urls)){
-      # download the layout file
-      utils::download.file(urls[['layout']],
-                    destfile=paste0(dir,"/",year,"/layout_",year,".zip"),
-                    mode="wb")
-
-      # extract the layout zip files
-      utils::unzip(paste0(dir,"/",year,"/layout_",year,".zip"),
-            exdir = paste0(dir,"/",year))
-    }
-
-    # get file paths for all txt files
-    files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
-
-    # if helpers_only is TRUE, remove any files larger than 1mb
-    if(helpers_only){
-      # get the file sizes
-      file_sizes <- file.info(files)$size
-
-      # for any files larger than 1 mb, delete the file
-      to_delete <- files[file_sizes > (1024* helpers_size_threshold)^2]
-
-      # delete the files
-      if(length(to_delete) > 0){
-        file.remove(to_delete)
-        cli::cli_alert_info(paste0("Deleted ", length(to_delete), paste0(" files larger than ",helpers_size_threshold," mb. To keep these files and clean them, set `helper_only = TRUE`." )))
-      }
-
-      # get updated list of file paths
-      files <- list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.txt")
-
-    }
-
-    # set up a progress bar
-    cli::cli_progress_bar("Converting .txt files to .rds", total = length(files))
-
-    # loop over each txt file and convert it to .rds
-    for(f in files){
-
-      cli::cli_progress_update(status = paste0("cleaning ",f))
-
-      # get the file name without the extension
-      file_name <- clean_file_name(f, file_type_out = "rds")
-
-      # suppress read_delim console output
-      data <- readr::read_delim(f, delim = "|", col_names = TRUE, show_col_types = FALSE)
-
-      # clean the data
-      data <- clean_data(data)
-
-      # save the file as an .rds
-      saveRDS(data, file = file_name)
-
-      # delete the original .txt file
-      file.remove(f)
-    }
-
-
-    # remove the original zip files
-    if(keep_source_files == FALSE){
-      file.remove(list.files(paste0(dir,"/",year), full.names = TRUE, pattern = "\\.zip"))
-    }
-
-    }
-
-    # close the progress bar
-    cli::cli_progress_done()
-
-  }
-
-}
 
 
 #' Check file availability and determine download/conversion strategy
@@ -1120,7 +806,7 @@ clean_file_name <- function(file_name, file_type_out = "rds"){
 
   # file suffix
   suffix <- parts[length(parts)]
-  
+
   # Sanitize the suffix to ensure valid UTF-8 encoding
   suffix <- iconv(suffix, from = "UTF-8", to = "UTF-8", sub = "")
 
@@ -1174,7 +860,7 @@ clean_data <- function(df){
 
   # clean column names
   df <- janitor::clean_names(df)
-  
+
   # Sanitize all character data to ensure valid UTF-8 encoding
   char_cols <- sapply(df, is.character)
   for(col in names(df)[char_cols]) {
@@ -1261,123 +947,4 @@ get_file_info <- function(directory = "./data-raw", file_suffix = ".rds") {
 }
 
 
-
-#' Build Helper Datasets from Raw RDS Files
-#'
-#' Processes raw `.rds` files from a specified directory, filters them based on year and size,
-#' combines matching files into unified datasets, saves them as `.rda` files, and generates
-#' corresponding documentation entries in `./R/helper_data.R`.
-#'
-#' @param years A numeric vector of years used to filter the input `.rds` files by year in their file paths.
-#' @param helper_codes A vector of ADM codes to identify the relevant helpers (ex: c("A01090","A00070")). If NULL, defaults to using all files in the year directory.
-#' @param dir A character string specifying the directory containing the raw `.rds` files.
-#'   Defaults to \code{"./data-raw"}.
-#'
-#' @details This function:
-#' \itemize{
-#'   \item Filters `.rds` files in the target directory to those matching specified years.
-#'   \item Excludes files larger than 1MB and those containing "rate" in the filename.
-#'   \item Binds rows of files with matching names across years into a single dataset.
-#'   \item Saves each dataset to the \code{./data/} folder as `.rda` files.
-#'   \item Writes or appends roxygen-style documentation entries to \code{./R/helper_data.R}.
-#'   \item Renames the existing \code{helper_data.R} file with the current date before overwriting.
-#' }
-#'
-#' Each resulting dataset will be available for use with \code{data()} if the package is rebuilt.
-#'
-#' @return No return value.
-#' @importFrom dplyr filter mutate bind_rows .data
-#' @importFrom purrr map
-#' @examples \dontrun{
-#' build_helper_datasets(years = 2020:2022)
-#' }
-build_helper_datasets <- function(years,dir = "./data-raw",  helper_codes = c("A01090","A00070") ){
-
-  # id "./data" doesn't exist, create it
-  if(!dir.exists("./data")) {
-    dir.create("./data")
-  }
-
-
-  file_info <- get_file_info(directory = dir,
-                              file_suffix = ".rds")
-
-  # Keep only file info for the years specified
-  file_info <- file_info[grepl(paste(years, collapse = "|"), file_info$file_path), ]
-
-  # For each year, extract the year from the file path and convert to numeric
-  file_info$year <- as.numeric(gsub(".*?/(\\d{4})/.*", "\\1", file_info$file_path))
-
-  # Add a column with the file name without any of the parent folders
-  file_info$file_name <- gsub(paste0(dir, "/"), "", file_info$file_path)
-  file_info$file_name <- gsub("[0-9]{4}/", "", file_info$file_name)
-  file_info$file_name <- gsub(".rds", "", file_info$file_name)
-
-  # extract the actuarial code from each file path (e.x. A00010)
-  file_info$adm_code <- substr(basename(file_info$file_path),6,11)
-
-  # keep only files that are in the helper codes
-  if(!is.null(helper_codes)){
-    file_info <- file_info %>%
-      filter(.data$adm_code %in% helper_codes)
-  }
-
-  # if "./R/data.R" already exists, rename the file name with the data appended
-  if(file.exists("./R/helper_data.R")){
-    file.rename("./R/helper_data.R", paste0("./R/helper_data_", Sys.Date(), ".R"))
-  }
-
-  # create a new file with the header for the data.R file
-  write("#' @title Actuarial Data Master Helper Datasets\n",
-        file = "./R/helper_data.R", append = FALSE)
-
-  # for each unique value in the file_name column,
-  # load all the datasets corresponding to that file name as
-  # specified by the file_path and then row bind them together
-  # and save them as a .rds file with the name of the file_name
-  for(f in unique(file_info$adm_code)){
-
-    # get the file paths for the current file name
-    file_paths <- file_info[file_info$adm_code == f, "file_path"]
-
-    # load the datasets
-    data <- file_paths %>%
-      purrr::map(~ {
-        df <- readRDS(.x) # read in the data frame
-        df[] <- lapply(df, as.character)  # Convert all columns to character
-        df # return the data frame
-      }) %>%
-      dplyr::bind_rows() # bind rows
-
-    # convert the columns back to their most approriate data type
-    data <- suppressMessages(readr::type_convert(data))
-
-    # Remove both prefix and suffix to get file name to export
-    file_out <- unique(gsub("^\\d{4}_[A-Za-z]\\d{5}_|_YTD|\\.rds", "",
-                     basename(file_paths)))
-
-
-    # Dynamically assign the name of the data to the value in f
-    assign(file_out, data)
-
-    # Save the named object to an .rda file
-    save(list = file_out, file = paste0("./data/", file_out, ".rda"), compress = "xz")
-
-
-    # add a documentation entry in ./data/data.R for the dataset
-    doc_entry <- paste0("#' @name ", file_out, "\n",
-                        "#' @title ", file_out, "\n",
-                        "#' @description A combined dataset for ", file_out, "\n",
-                        "#' @format A data frame with ", nrow(data), " rows and ", ncol(data), " columns covering ",min(data$reinsurance_year),"-",max(data$reinsurance_year),".\n",
-                        "#' @source Actuarial Data Master\n",
-                        "#' @usage data(",file_out,")", "\n",
-                        paste0('"',file_out,'"'))
-    # append the doc entry to the data.R file
-    write(doc_entry, file = "./R/helper_data.R", append = TRUE)
-  }
-
-
-
-
-}
 
